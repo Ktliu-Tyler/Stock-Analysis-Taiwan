@@ -65,15 +65,25 @@ def stochastic_kd(
     closes: Sequence[float | int | None],
     period: int = 9,
 ) -> tuple[float | None, float | None]:
+    k, d, _ = stochastic_kdj(highs, lows, closes, period)
+    return k, d
+
+
+def stochastic_kdj(
+    highs: Sequence[float | int | None],
+    lows: Sequence[float | int | None],
+    closes: Sequence[float | int | None],
+    period: int = 9,
+) -> tuple[float | None, float | None, float | None]:
     high_values = _clean(highs)
     low_values = _clean(lows)
     close_values = _clean(closes)
     if len(high_values) < period or len(low_values) < period or len(close_values) < period:
-        return None, None
+        return None, None, None
     recent_high = max(high_values[-period:])
     recent_low = min(low_values[-period:])
     if recent_high == recent_low:
-        return 50.0, 50.0
+        return 50.0, 50.0, 50.0
     raw_k = (close_values[-1] - recent_low) / (recent_high - recent_low) * 100
     k_values: list[float] = []
     for index in range(period, len(close_values) + 1):
@@ -85,7 +95,29 @@ def stochastic_kd(
         else:
             k_values.append((close - window_low) / (window_high - window_low) * 100)
     d = sma(k_values, 3)
-    return raw_k, d
+    if d is None:
+        return raw_k, None, None
+    j = 3 * raw_k - 2 * d
+    return raw_k, d, j
+
+
+def bollinger_bands(
+    values: Sequence[float | int | None],
+    period: int = 20,
+    deviations: float = 2.0,
+) -> tuple[float | None, float | None, float | None, float | None, float | None]:
+    clean = _clean(values)
+    if period <= 1 or len(clean) < period:
+        return None, None, None, None, None
+    window = clean[-period:]
+    middle = sum(window) / period
+    variance = sum((value - middle) ** 2 for value in window) / period
+    stddev = math.sqrt(variance)
+    upper = middle + deviations * stddev
+    lower = middle - deviations * stddev
+    bandwidth = ((upper - lower) / middle * 100) if middle else None
+    percent_b = ((clean[-1] - lower) / (upper - lower) * 100) if upper != lower else 50.0
+    return middle, upper, lower, bandwidth, percent_b
 
 
 def atr(
@@ -142,4 +174,3 @@ def volatility(values: Sequence[float | int | None], period: int = 20) -> float 
     mean = sum(returns) / len(returns)
     variance = sum((item - mean) ** 2 for item in returns) / (len(returns) - 1)
     return math.sqrt(variance)
-

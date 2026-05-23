@@ -1,6 +1,6 @@
 import unittest
 
-from app.indicators import atr, macd, pct_change, rsi, sma, stochastic_kd
+from app.indicators import atr, bollinger_bands, macd, pct_change, rsi, sma, stochastic_kd, stochastic_kdj
 
 
 class IndicatorTests(unittest.TestCase):
@@ -26,12 +26,24 @@ class IndicatorTests(unittest.TestCase):
         lows = [8 + index for index in range(30)]
         closes = [9 + index for index in range(30)]
         k, d = stochastic_kd(highs, lows, closes)
+        k2, d2, j = stochastic_kdj(highs, lows, closes)
         self.assertIsNotNone(k)
         self.assertIsNotNone(d)
+        self.assertEqual(k, k2)
+        self.assertEqual(d, d2)
+        self.assertIsNotNone(j)
         self.assertGreater(k, 50)
         self.assertGreater(atr(highs, lows, closes), 0)
+
+    def test_bollinger_bands_have_position_metrics(self):
+        values = [float(index) for index in range(1, 31)]
+        middle, upper, lower, bandwidth, percent_b = bollinger_bands(values)
+        self.assertIsNotNone(middle)
+        self.assertGreater(upper, middle)
+        self.assertLess(lower, middle)
+        self.assertGreater(bandwidth, 0)
+        self.assertGreater(percent_b, 50)
 
 
 if __name__ == "__main__":
     unittest.main()
-

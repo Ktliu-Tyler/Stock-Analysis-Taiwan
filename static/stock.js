@@ -21,6 +21,7 @@ const stockState = {
   showMA5: true,
   showMA10: true,
   showMA20: true,
+  showBollinger: true,
   showVolume: true,
   tool: "inspect",
   hoverIndex: null,
@@ -43,6 +44,7 @@ const stockElements = {
   ma5Toggle: document.querySelector("#ma5Toggle"),
   ma10Toggle: document.querySelector("#ma10Toggle"),
   ma20Toggle: document.querySelector("#ma20Toggle"),
+  bollingerToggle: document.querySelector("#bollingerToggle"),
   volumeToggle: document.querySelector("#volumeToggle"),
   inspectTool: document.querySelector("#inspectTool"),
   trendTool: document.querySelector("#trendTool"),
@@ -193,8 +195,16 @@ function renderMainChart(prices) {
   };
   const highs = prices.map((item) => Number(item.high || item.close || 0));
   const lows = prices.map((item) => Number(item.low || item.close || 0));
+  const bollinger = bollingerSeries(prices.map((item) => Number(item.close || 0)));
+  const visibleBands = stockState.showBollinger
+    ? bollinger.filter((item) => item.upper !== null && item.lower !== null)
+    : [];
   let maxPrice = Math.max(...highs);
   let minPrice = Math.min(...lows);
+  if (visibleBands.length) {
+    maxPrice = Math.max(maxPrice, ...visibleBands.map((item) => item.upper));
+    minPrice = Math.min(minPrice, ...visibleBands.map((item) => item.lower));
+  }
   const pad = (maxPrice - minPrice || maxPrice * 0.04 || 1) * 0.08;
   maxPrice += pad;
   minPrice = Math.max(0, minPrice - pad);
@@ -204,6 +214,7 @@ function renderMainChart(prices) {
   drawGrid(ctx, priceArea, 5, 4);
   drawPriceAxis(ctx, priceArea, minPrice, maxPrice);
   drawDateAxis(ctx, priceArea, prices);
+  if (stockState.showBollinger) drawBollinger(ctx, priceArea, bollinger, minPrice, maxPrice);
 
   if (stockState.chartType === "line") {
     drawCloseLine(ctx, priceArea, prices, minPrice, maxPrice);
@@ -226,6 +237,8 @@ function renderIndicatorChart(prices) {
   drawGrid(ctx, area, 3, 4);
   if (stockState.indicator === "macd") {
     drawMacd(ctx, area, prices);
+  } else if (stockState.indicator === "kdj") {
+    drawKdj(ctx, area, prices);
   } else if (stockState.indicator === "flow") {
     drawFlow(ctx, area, prices);
   } else {
@@ -289,6 +302,58 @@ function drawMovingAverage(ctx, area, prices, period, color, minPrice, maxPrice)
   });
   ctx.stroke();
   ctx._maStarted = false;
+  ctx.lineWidth = 1;
+}
+
+function drawBollinger(ctx, area, bands, minPrice, maxPrice) {
+  const valid = bands.some((item) => item.upper !== null && item.lower !== null);
+  if (!valid) return;
+  ctx.fillStyle = "rgba(120, 183, 255, 0.06)";
+  ctx.beginPath();
+  bands.forEach((item, index) => {
+    if (item.upper === null) return;
+    const x = xForIndex(area, bands.length, index);
+    const y = yForPrice(area, item.upper, minPrice, maxPrice);
+    if (!ctx._bbUpperStarted) {
+      ctx.moveTo(x, y);
+      ctx._bbUpperStarted = true;
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  [...bands].reverse().forEach((item, reverseIndex) => {
+    if (item.lower === null) return;
+    const index = bands.length - 1 - reverseIndex;
+    const x = xForIndex(area, bands.length, index);
+    const y = yForPrice(area, item.lower, minPrice, maxPrice);
+    ctx.lineTo(x, y);
+  });
+  ctx.closePath();
+  ctx.fill();
+  ctx._bbUpperStarted = false;
+  drawBandLine(ctx, area, bands.map((item) => item.upper), minPrice, maxPrice, "rgba(120, 183, 255, 0.9)");
+  drawBandLine(ctx, area, bands.map((item) => item.middle), minPrice, maxPrice, "rgba(120, 183, 255, 0.48)");
+  drawBandLine(ctx, area, bands.map((item) => item.lower), minPrice, maxPrice, "rgba(120, 183, 255, 0.9)");
+  drawText(ctx, "布林20", area.left, area.top - 5);
+}
+
+function drawBandLine(ctx, area, values, minPrice, maxPrice, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.1;
+  ctx.beginPath();
+  values.forEach((value, index) => {
+    if (value === null) return;
+    const x = xForIndex(area, values.length, index);
+    const y = yForPrice(area, value, minPrice, maxPrice);
+    if (!ctx._bandStarted) {
+      ctx.moveTo(x, y);
+      ctx._bandStarted = true;
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+  ctx.stroke();
+  ctx._bandStarted = false;
   ctx.lineWidth = 1;
 }
 
@@ -359,6 +424,34 @@ function drawMacd(ctx, area, prices) {
   drawLineSeries(ctx, area, macd.line, -maxAbs, maxAbs, chartColors.accent);
   drawLineSeries(ctx, area, macd.signal, -maxAbs, maxAbs, chartColors.amber);
   drawText(ctx, "MACD", area.left, area.top - 5);
+}
+
+function drawKdj(ctx, area, prices) {
+  const values = kdjSeries(
+    prices.map((item) => Number(item.high || item.close)),
+    prices.map((item) => Number(item.low || item.close)),
+    prices.map((item) => Number(item.close))
+  );
+  const allValues = [...values.k, ...values.d, ...values.j].filter((value) => value !== null);
+  const minValue = Math.min(0, ...allValues);
+  const maxValue = Math.max(100, ...allValues);
+  const yForKdj = (value) => area.bottom - ((value - minValue) / (maxValue - minValue || 1)) * (area.bottom - area.top);
+  ctx.strokeStyle = "rgba(243, 178, 78, 0.45)";
+  [80, 50, 20].forEach((level) => {
+    const y = yForKdj(level);
+    ctx.beginPath();
+    ctx.moveTo(area.left, y);
+    ctx.lineTo(area.right, y);
+    ctx.stroke();
+    drawText(ctx, String(level), area.right + 8, y + 4);
+  });
+  drawLineSeries(ctx, area, values.k, minValue, maxValue, chartColors.accent);
+  drawLineSeries(ctx, area, values.d, minValue, maxValue, chartColors.amber);
+  drawLineSeries(ctx, area, values.j, minValue, maxValue, chartColors.teal);
+  drawText(ctx, "KDJ 9", area.left, area.top - 5);
+  drawText(ctx, "K", area.left + 56, area.top - 5);
+  drawText(ctx, "D", area.left + 76, area.top - 5);
+  drawText(ctx, "J", area.left + 96, area.top - 5);
 }
 
 function drawFlow(ctx, area, prices) {
@@ -710,6 +803,27 @@ function movingAverage(values, period) {
   });
 }
 
+function bollingerSeries(values, period = 20, deviations = 2) {
+  return values.map((value, index) => {
+    if (index + 1 < period) {
+      return { middle: null, upper: null, lower: null, bandwidth: null, percentB: null };
+    }
+    const slice = values.slice(index + 1 - period, index + 1);
+    const middle = slice.reduce((sum, item) => sum + item, 0) / period;
+    const variance = slice.reduce((sum, item) => sum + (item - middle) ** 2, 0) / period;
+    const stddev = Math.sqrt(variance);
+    const upper = middle + deviations * stddev;
+    const lower = middle - deviations * stddev;
+    return {
+      middle,
+      upper,
+      lower,
+      bandwidth: middle ? ((upper - lower) / middle) * 100 : null,
+      percentB: upper !== lower ? ((value - lower) / (upper - lower)) * 100 : 50,
+    };
+  });
+}
+
 function rsiSeries(values, period = 14) {
   return values.map((_, index) => {
     if (index < period) return null;
@@ -748,10 +862,31 @@ function macdSeries(values) {
   return { line, signal, histogram };
 }
 
+function kdjSeries(highs, lows, closes, period = 9) {
+  const rawK = closes.map((close, index) => {
+    if (index + 1 < period) return null;
+    const high = Math.max(...highs.slice(index + 1 - period, index + 1));
+    const low = Math.min(...lows.slice(index + 1 - period, index + 1));
+    if (high === low) return 50;
+    return ((close - low) / (high - low)) * 100;
+  });
+  const d = rawK.map((_, index) => {
+    const slice = rawK.slice(Math.max(0, index - 2), index + 1).filter((value) => value !== null);
+    if (slice.length < 3) return null;
+    return slice.reduce((sum, value) => sum + value, 0) / slice.length;
+  });
+  const j = rawK.map((value, index) => {
+    if (value === null || d[index] === null) return null;
+    return 3 * value - 2 * d[index];
+  });
+  return { k: rawK, d, j };
+}
+
 function updateToolbarState() {
   toggleActive(stockElements.ma5Toggle, stockState.showMA5);
   toggleActive(stockElements.ma10Toggle, stockState.showMA10);
   toggleActive(stockElements.ma20Toggle, stockState.showMA20);
+  toggleActive(stockElements.bollingerToggle, stockState.showBollinger);
   toggleActive(stockElements.volumeToggle, stockState.showVolume);
   toggleActive(stockElements.inspectTool, stockState.tool === "inspect");
   toggleActive(stockElements.trendTool, stockState.tool === "trend");
@@ -872,6 +1007,10 @@ stockElements.ma10Toggle.addEventListener("click", () => {
 });
 stockElements.ma20Toggle.addEventListener("click", () => {
   stockState.showMA20 = !stockState.showMA20;
+  renderCharts();
+});
+stockElements.bollingerToggle.addEventListener("click", () => {
+  stockState.showBollinger = !stockState.showBollinger;
   renderCharts();
 });
 stockElements.volumeToggle.addEventListener("click", () => {

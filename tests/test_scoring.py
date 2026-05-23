@@ -13,6 +13,10 @@ class ScoringTests(unittest.TestCase):
         self.assertLessEqual(score.buy_score, 100)
         self.assertIn(score.decision, {"適合買入", "觀察", "等待拉回", "避開"})
         self.assertGreater(score.entry_watch_price, score.stop_loss_price)
+        self.assertIn("bollinger", score.details)
+        self.assertIn("kdj", score.details)
+        self.assertIn("bollinger_bullish", score.details["filter_flags"])
+        self.assertIn("kdj_bullish", score.details["filter_flags"])
 
     def test_modes_produce_mode_metadata(self):
         stocks, prices, flows, margins, news = demo_market()

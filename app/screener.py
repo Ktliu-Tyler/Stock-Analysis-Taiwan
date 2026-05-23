@@ -214,6 +214,22 @@ class ScreenerService:
                 {"label": "MA5", "value": _round(details.get("ma5")), "state": _state(details.get("ma5"), details.get("ma10"))},
                 {"label": "MA10", "value": _round(details.get("ma10")), "state": _state(details.get("ma10"), details.get("ma20"))},
                 {"label": "RSI14", "value": _round(details.get("rsi14")), "state": "strong" if 45 <= (details.get("rsi14") or 0) <= 70 else "watch"},
+                {
+                    "label": "布林%B",
+                    "value": _round((details.get("bollinger") or {}).get("percent_b")),
+                    "state": "strong" if 45 <= ((details.get("bollinger") or {}).get("percent_b") or 0) <= 95 else "watch",
+                },
+                {
+                    "label": "KDJ",
+                    "value": _round((details.get("kdj") or {}).get("j")),
+                    "state": (
+                        "risk"
+                        if ((details.get("kdj") or {}).get("j") or 0) > 105 or ((details.get("kdj") or {}).get("k") or 0) > 88
+                        else "strong"
+                        if ((details.get("kdj") or {}).get("k") or 0) > ((details.get("kdj") or {}).get("d") or 0)
+                        else "watch"
+                    ),
+                },
                 {"label": "量比", "value": _round(details.get("volume_ratio")), "state": "strong" if (details.get("volume_ratio") or 0) >= 1.2 else "watch"},
                 {"label": "5日漲幅", "value": _round(details.get("change_5d")), "state": "risk" if (details.get("change_5d") or 0) > 18 else "watch"},
             ],
@@ -279,6 +295,8 @@ class ScreenerService:
         exclude_high_risk = filters.get("exclude_high_risk", "").lower() in {"1", "true", "yes"}
         require_ma_bullish = _bool_filter(filters.get("ma_bullish"))
         require_macd_bullish = _bool_filter(filters.get("macd_bullish"))
+        require_bollinger_bullish = _bool_filter(filters.get("bollinger_bullish"))
+        require_kdj_bullish = _bool_filter(filters.get("kdj_bullish"))
         require_volume_breakout = _bool_filter(filters.get("volume_breakout"))
         require_breakout = _bool_filter(filters.get("breakout_20d"))
         require_sentiment_positive = _bool_filter(filters.get("sentiment_positive"))
@@ -316,6 +334,10 @@ class ScreenerService:
             if require_ma_bullish and not flags.get("ma_bullish"):
                 continue
             if require_macd_bullish and not flags.get("macd_bullish"):
+                continue
+            if require_bollinger_bullish and not flags.get("bollinger_bullish"):
+                continue
+            if require_kdj_bullish and not flags.get("kdj_bullish"):
                 continue
             if require_volume_breakout and not flags.get("volume_breakout"):
                 continue

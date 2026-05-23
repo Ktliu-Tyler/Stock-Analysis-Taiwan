@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from .indicators import atr, macd, pct_change, rolling_max, rolling_min, rsi, sma, stochastic_kd, volatility
+from .indicators import atr, bollinger_bands, macd, pct_change, rolling_max, rolling_min, rsi, sma, stochastic_kdj, volatility
 from .models import InstitutionalFlow, MarginBalance, NewsItem, PriceBar, ScoreResult, Stock
 
 POSITIVE_TERMS = [
@@ -245,7 +245,8 @@ def score_stock(
     volume_ratio = _safe_ratio(latest.volume, volume_ma20)
     rsi14 = rsi(closes, 14)
     macd_line, macd_signal, macd_histogram = macd(closes)
-    k_value, d_value = stochastic_kd(highs, lows, closes)
+    k_value, d_value, j_value = stochastic_kdj(highs, lows, closes)
+    bb_middle, bb_upper, bb_lower, bb_width, bb_percent_b = bollinger_bands(closes)
     atr14 = atr(highs, lows, closes, 14)
     atr_ratio = _safe_ratio(atr14 or 0, latest.close)
     change_1d = pct_change(closes, 1) or 0.0
@@ -361,20 +362,55 @@ def score_stock(
         macd_text = "MACD資料不足"
     technical_indicators.append(_indicator("macd_histogram", "MACD", _round(macd_histogram, 4), macd_delta, macd_text))
 
-    kd_delta = 0.0
-    if k_value is not None and d_value is not None:
-        if k_value > d_value and k_value < 85:
-            kd_delta = 8
-            kd_text = "KD黃金交叉且未過熱"
-        elif k_value < d_value:
-            kd_delta = -5
-            kd_text = "KD向下交叉，短線動能降溫"
+    bb_delta = 0.0
+    if bb_middle is not None and bb_upper is not None and bb_lower is not None and bb_percent_b is not None:
+        if latest.close > bb_upper and volume_ratio >= 1.15 and rsi14 is not None and rsi14 <= 78:
+            bb_delta = 12
+            buy_reasons.append("布林上軌突破且量能配合")
+            bb_text = "收盤價突破布林上軌，且量能與動能尚未明顯過熱"
+        elif latest.close > bb_middle and 45 <= bb_percent_b <= 92:
+            bb_delta = 7
+            bb_text = "價格站在布林中軌上方，趨勢維持偏多"
+        elif latest.close < bb_lower:
+            bb_delta = -12
+            avoid_reasons.append("跌破布林下軌")
+            bb_text = "收盤價跌破布林下軌，短期趨勢與風控轉弱"
+        elif bb_percent_b > 105:
+            bb_delta = -4
+            avoid_reasons.append("布林乖離偏高")
+            bb_text = "價格明顯超出布林上軌，追價風險提高"
         else:
-            kd_delta = -2
-            kd_text = "KD偏熱，需等拉回"
+            bb_delta = 1
+            bb_text = "布林位置中性"
     else:
-        kd_text = "KD資料不足"
-    technical_indicators.append(_indicator("kd", "KD", f"K {_round(k_value)} / D {_round(d_value)}", kd_delta, kd_text))
+        bb_text = "布林資料不足"
+    technical_indicators.append(_indicator("bollinger", "布林通道", _round(bb_percent_b), bb_delta, bb_text, "%B"))
+
+    kdj_delta = 0.0
+    if k_value is not None and d_value is not None and j_value is not None:
+        if j_value > 105 or k_value > 88:
+            kdj_delta = -5
+            avoid_reasons.append("KDJ過熱")
+            kdj_text = "KDJ進入高檔過熱區，追價需保守"
+        elif k_value > d_value and j_value > k_value and 20 <= k_value <= 85:
+            kdj_delta = 10
+            buy_reasons.append("KDJ黃金交叉")
+            kdj_text = "K>D 且 J 值向上，短期動能偏多"
+        elif k_value < d_value and j_value < d_value:
+            kdj_delta = -8
+            avoid_reasons.append("KDJ死叉")
+            kdj_text = "K<D 且 J 值向下，短線動能轉弱"
+        elif k_value < 25 and k_value > d_value:
+            kdj_delta = 5
+            kdj_text = "低檔KDJ轉強，屬於觀察型訊號"
+        else:
+            kdj_delta = 1
+            kdj_text = "KDJ中性"
+    else:
+        kdj_text = "KDJ資料不足"
+    technical_indicators.append(
+        _indicator("kdj", "KDJ", f"K {_round(k_value)} / D {_round(d_value)} / J {_round(j_value)}", kdj_delta, kdj_text)
+    )
 
     if mode in {"swing", "long"}:
         medium_delta = 0.0
@@ -585,7 +621,7 @@ def score_stock(
 
     local_model = local_model_analysis(indicator_breakdown, buy_score, risk_score)
     details = {
-        "analysis_version": 3,
+        "analysis_version": 4,
         "analysis_mode": mode,
         "analysis_mode_label": mode_config["label"],
         "analysis_mode_description": mode_config["description"],
@@ -600,6 +636,14 @@ def score_stock(
         "rsi14": rsi14,
         "macd": {"line": macd_line, "signal": macd_signal, "histogram": macd_histogram},
         "kd": {"k": k_value, "d": d_value},
+        "kdj": {"k": k_value, "d": d_value, "j": j_value},
+        "bollinger": {
+            "middle": bb_middle,
+            "upper": bb_upper,
+            "lower": bb_lower,
+            "bandwidth": bb_width,
+            "percent_b": bb_percent_b,
+        },
         "atr_ratio": atr_ratio,
         "change_1d": change_1d,
         "change_5d": change_5d,
@@ -782,6 +826,8 @@ def build_filter_flags(indicator_breakdown: dict[str, Any], local_model: dict[st
     return {
         "ma_bullish": technical_items.get("ma_trend", {}).get("impact", 0) >= 8,
         "macd_bullish": technical_items.get("macd_histogram", {}).get("impact", 0) >= 5,
+        "bollinger_bullish": technical_items.get("bollinger", {}).get("impact", 0) >= 6,
+        "kdj_bullish": technical_items.get("kdj", {}).get("impact", 0) >= 5,
         "volume_breakout": technical_items.get("volume_ratio", {}).get("impact", 0) >= 8,
         "breakout_20d": technical_items.get("breakout_20d", {}).get("impact", 0) >= 8,
         "sentiment_positive": sentiment_items.get("positive_terms", {}).get("impact", 0) >= 5,

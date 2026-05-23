@@ -32,6 +32,8 @@ const elements = {
   riskFilter: document.querySelector("#riskFilter"),
   maFilter: document.querySelector("#maFilter"),
   macdFilter: document.querySelector("#macdFilter"),
+  bollingerFilter: document.querySelector("#bollingerFilter"),
+  kdjFilter: document.querySelector("#kdjFilter"),
   volumeBreakoutFilter: document.querySelector("#volumeBreakoutFilter"),
   breakoutFilter: document.querySelector("#breakoutFilter"),
   sentimentPositiveFilter: document.querySelector("#sentimentPositiveFilter"),
@@ -85,6 +87,8 @@ function params() {
   query.set("exclude_high_risk", elements.riskFilter.checked ? "1" : "0");
   query.set("ma_bullish", elements.maFilter.checked ? "1" : "0");
   query.set("macd_bullish", elements.macdFilter.checked ? "1" : "0");
+  query.set("bollinger_bullish", elements.bollingerFilter.checked ? "1" : "0");
+  query.set("kdj_bullish", elements.kdjFilter.checked ? "1" : "0");
   query.set("volume_breakout", elements.volumeBreakoutFilter.checked ? "1" : "0");
   query.set("breakout_20d", elements.breakoutFilter.checked ? "1" : "0");
   query.set("sentiment_positive", elements.sentimentPositiveFilter.checked ? "1" : "0");
@@ -570,6 +574,8 @@ elements.modeButtons.forEach((button) => {
   elements.riskFilter,
   elements.maFilter,
   elements.macdFilter,
+  elements.bollingerFilter,
+  elements.kdjFilter,
   elements.volumeBreakoutFilter,
   elements.breakoutFilter,
   elements.sentimentPositiveFilter,
