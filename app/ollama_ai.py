@@ -190,8 +190,8 @@ class AIAnalysisService:
 
     def _stock_prompt(self, report: dict[str, Any], question: str = "") -> str:
         context = _compact_report(report)
-        extra_question = question or "請針對這檔股票給出短線買入建議。"
-        return f"""你是台股短線交易分析助理。請使用繁體中文，根據下列系統化資料分析該股票。
+        extra_question = question or "請針對這檔股票給出短線、波段與中長線都可參考的買賣建議。"
+        return f"""你是台股投資分析助理。請使用繁體中文，根據下列系統化資料分析該股票，並同時考量短線、波段與中長線觀察角度。
 
 重要規則：
 1. 不要宣稱保證獲利。

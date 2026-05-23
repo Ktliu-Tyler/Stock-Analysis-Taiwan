@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>個股完整分析</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="stockPage">
+    <header class="topbar">
+      <div>
+        <h1 id="stockPageTitle">個股完整分析</h1>
+        <p id="stockPageMeta">載入中</p>
+      </div>
+      <div class="actions">
+        <a class="buttonLink secondary" id="stockAiLink" href="/ai.html">AI 分析</a>
+        <a class="buttonLink secondary" href="/portfolio.html">持股紀錄</a>
+        <a class="buttonLink secondary" href="/">返回總覽</a>
+      </div>
+    </header>
+
+    <main class="stockWorkspace">
+      <section class="chartPanel">
+        <div class="panelHead chartHead">
+          <div>
+            <h2>互動價量圖</h2>
+            <span id="chartStatus">準備中</span>
+          </div>
+          <div class="chartToolbar" aria-label="圖表工具">
+            <select id="rangeSelect" title="時間範圍">
+              <option value="30">1M</option>
+              <option value="90" selected>3M</option>
+              <option value="180">6M</option>
+              <option value="all">全部</option>
+            </select>
+            <select id="chartTypeSelect" title="圖表型態">
+              <option value="candle">K 線</option>
+              <option value="line">收盤線</option>
+            </select>
+            <select id="indicatorSelect" title="副圖指標">
+              <option value="rsi">RSI</option>
+              <option value="macd">MACD</option>
+              <option value="flow">法人</option>
+            </select>
+            <button id="ma5Toggle" type="button" class="secondary activeTool">MA5</button>
+            <button id="ma10Toggle" type="button" class="secondary activeTool">MA10</button>
+            <button id="ma20Toggle" type="button" class="secondary activeTool">MA20</button>
+            <button id="volumeToggle" type="button" class="secondary activeTool">量</button>
+            <button id="inspectTool" type="button" class="secondary activeTool">十字</button>
+            <button id="trendTool" type="button" class="secondary">趨勢線</button>
+            <button id="clearDrawingsBtn" type="button" class="secondary">清除</button>
+          </div>
+        </div>
+        <div class="chartInfoBar" id="chartInfoBar">移動滑鼠查看 K 線資料，點擊可固定資料點。</div>
+        <canvas id="stockChart" class="interactiveChart" width="1280" height="620"></canvas>
+        <canvas id="indicatorChart" class="interactiveChart subChart" width="1280" height="220"></canvas>
+      </section>
+
+      <aside class="stockSidePanel">
+        <section class="listPanel">
+          <div class="panelHead">
+            <h2>分數與結論</h2>
+            <span id="sideDecision">-</span>
+          </div>
+          <div class="detailBody">
+            <div class="scoreGrid compactScoreGrid" id="stockScoreGrid"></div>
+            <div class="advicePanel sideAdvice">
+              <div>
+                <span>多空方向</span>
+                <strong id="sideDirection">-</strong>
+              </div>
+              <p id="sideAdviceText"></p>
+            </div>
+          </div>
+        </section>
+
+        <section class="listPanel">
+          <div class="panelHead">
+            <h2>價位規劃</h2>
+            <span id="pricePlanMeta">-</span>
+          </div>
+          <div class="detailBody">
+            <div class="pricePlanGrid">
+              <div><span>觀察價</span><strong id="entryPrice">-</strong></div>
+              <div><span>停損價</span><strong id="stopPrice">-</strong></div>
+              <div><span>目標區間</span><strong id="targetZone">-</strong></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="listPanel">
+          <div class="panelHead">
+            <h2>系統理由</h2>
+            <span>研究輔助</span>
+          </div>
+          <div class="detailBody reasonStack">
+            <div>
+              <h3>買入理由</h3>
+              <p id="stockBuyReason"></p>
+            </div>
+            <div>
+              <h3>避開條件</h3>
+              <p id="stockAvoidReason"></p>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </main>
+
+    <section class="backtestPanel stockFullWidth">
+      <div class="panelHead">
+        <h2>指標影響拆解</h2>
+        <span id="breakdownMeta">-</span>
+      </div>
+      <div id="stockIndicatorBreakdown" class="breakdownGrid detailBody"></div>
+    </section>
+
+    <section class="backtestPanel stockFullWidth">
+      <div class="panelHead">
+        <h2>新聞與公告</h2>
+        <span id="newsMeta">-</span>
+      </div>
+      <ul id="stockNewsList" class="newsList"></ul>
+    </section>
+
+    <footer>
+      研究輔助工具，不構成投資建議。
+    </footer>
+
+    <script src="/stock.js"></script>
+  </body>
+</html>

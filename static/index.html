@@ -3,13 +3,13 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>台股短線買入篩選</title>
+    <title>台股投資分析系統</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <header class="topbar">
       <div>
-        <h1>台股短線買入篩選</h1>
+        <h1>台股投資分析系統</h1>
         <p id="runMeta">載入中</p>
       </div>
       <div class="actions">
@@ -139,8 +139,11 @@
 
       <aside class="detailPanel">
         <div class="panelHead">
-          <h2 id="detailTitle">單檔分析</h2>
-          <span id="detailDecision">尚未選取</span>
+          <div>
+            <h2 id="detailTitle">單檔分析</h2>
+            <span id="detailDecision">尚未選取</span>
+          </div>
+          <a id="fullDetailLink" class="buttonLink secondary compactLink" href="/stock.html" hidden>完整圖表</a>
         </div>
         <div id="detailEmpty" class="empty">請從左側清單選擇股票</div>
         <div id="detailBody" class="detailBody" hidden>
@@ -179,7 +182,7 @@
 
     <section class="backtestPanel">
       <div class="panelHead">
-        <h2>1-5 日回測</h2>
+        <h2>策略回測</h2>
         <span id="backtestStrategy">載入中</span>
       </div>
       <div id="backtestRows" class="backtestRows"></div>

@@ -38,6 +38,7 @@ const elements = {
   stockRows: document.querySelector("#stockRows"),
   detailTitle: document.querySelector("#detailTitle"),
   detailDecision: document.querySelector("#detailDecision"),
+  fullDetailLink: document.querySelector("#fullDetailLink"),
   detailEmpty: document.querySelector("#detailEmpty"),
   detailBody: document.querySelector("#detailBody"),
   scoreGrid: document.querySelector("#scoreGrid"),
@@ -197,6 +198,8 @@ async function loadReport(stockId) {
     const details = score.details || {};
     elements.detailTitle.textContent = `${score.stock_id} ${score.name}`;
     elements.detailDecision.textContent = score.decision;
+    elements.fullDetailLink.hidden = false;
+    elements.fullDetailLink.href = `/stock.html?id=${encodeURIComponent(score.stock_id)}`;
     elements.directionText.textContent = details.direction || "-";
     elements.directionText.className = directionClassName(details.direction || "");
     elements.investmentAdvice.textContent = details.investment_advice || "";
@@ -220,6 +223,7 @@ function clearDetail(message) {
   elements.detailEmpty.hidden = false;
   elements.detailBody.hidden = true;
   elements.detailEmpty.textContent = message;
+  elements.fullDetailLink.hidden = true;
   renderRows();
 }
 

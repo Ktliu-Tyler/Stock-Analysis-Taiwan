@@ -132,6 +132,8 @@ class StockScreenerHandler(BaseHTTPRequestHandler):
         if not str(file_path).startswith(str(STATIC_DIR.resolve())) or not file_path.exists() or file_path.is_dir():
             file_path = STATIC_DIR / "index.html"
         content_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
+        if content_type.startswith("text/") or content_type in {"application/javascript", "application/json"}:
+            content_type = f"{content_type}; charset=utf-8"
         body = file_path.read_bytes()
         try:
             self.send_response(HTTPStatus.OK)
@@ -154,7 +156,7 @@ def scheduler_loop() -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Taiwan stock short-term screener")
+    parser = argparse.ArgumentParser(description="Taiwan stock investment analysis system")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=8000, type=int)
     args = parser.parse_args()

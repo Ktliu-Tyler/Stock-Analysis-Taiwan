@@ -41,6 +41,7 @@ async function initAIPage() {
   await loadAIStatus();
   await loadPositions();
   await loadStocks();
+  applyStockFromUrl();
   applyPositionFromUrl();
   hideLoading();
 }
@@ -95,6 +96,16 @@ function applyPositionFromUrl() {
   if (!positionId) return;
   aiElements.savedPositionSelect.value = positionId;
   applySavedPosition(positionId);
+}
+
+function applyStockFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const stockId = params.get("stock_id") || params.get("id");
+  if (!stockId) return;
+  if (![...aiElements.stockSelect.options].some((option) => option.value === stockId)) {
+    aiElements.stockSelect.insertAdjacentHTML("afterbegin", `<option value="${escapeHtml(stockId)}">${escapeHtml(stockId)}</option>`);
+  }
+  aiElements.stockSelect.value = stockId;
 }
 
 function applySavedPosition(positionId) {

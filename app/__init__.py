@@ -1,2 +1,1 @@
-"""Taiwan stock short-term screener."""
-
+"""Taiwan stock investment analysis system."""
