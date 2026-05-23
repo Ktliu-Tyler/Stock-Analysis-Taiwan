@@ -13,7 +13,7 @@ SCAN_LIMIT = int(os.getenv("STOCK_SCAN_LIMIT", "18"))
 WATCHLIST_ENV = os.getenv("TW_STOCK_WATCHLIST", "").strip()
 ENABLE_SCHEDULER = os.getenv("ENABLE_SCHEDULER", "0").strip() == "1"
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434").rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5:9b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3:4b")
 OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "360"))
 
 USER_AGENT = "tw-stock-screener/0.1 (+local research tool)"

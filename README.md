@@ -120,12 +120,13 @@ AI 頁和原本篩選儀表板分開，不會阻塞你查看原本介面。
 - 從持股頁帶入保存的持股資料
 - 追加問題
 - 選擇本機 Ollama 模型
+- thinking 模式即時顯示模型思考內容，完成後自動摺疊
 - AI 回覆自動整理成報告卡片
 
 預設 Ollama 設定：
 
 - `OLLAMA_HOST`：`http://127.0.0.1:11434`
-- `OLLAMA_MODEL`：`qwen3.5:9b`
+- `OLLAMA_MODEL`：`qwen3:4b`
 - `OLLAMA_TIMEOUT`：`360`
 
 ## WSL / Ollama 啟動方式
@@ -149,13 +150,29 @@ ollama serve
 第一次分析前，建議先暖機模型：
 
 ```bash
-ollama run qwen3.5:9b "請用一句話回答 OK"
+ollama run qwen3:4b "請用一句話回答 OK"
+```
+
+目前這台 WSL 已安裝的模型：
+
+```text
+qwen3:1.7b    快速中文分析，支援 thinking
+qwen3:4b      推薦日常分析，支援 thinking，速度與品質平衡
+gemma3:1b     超輕量備用，速度快但細節較少
+gemma4:e2b    Gemma 4 edge 版，約 7.2GB，推理能力較好但載入較久
+qwen3.5:9b    較完整但比較慢
+```
+
+`gemma4:e2b` 是 Gemma 4 的較小 edge 版本，但仍約 7.2GB；若日後重新安裝或下載中斷，可在 WSL 內重新執行：
+
+```bash
+ollama pull gemma4:e2b
 ```
 
 Windows PowerShell 啟動網站時可設定：
 
 ```powershell
-$env:OLLAMA_MODEL="qwen3.5:9b"
+$env:OLLAMA_MODEL="qwen3:4b"
 $env:OLLAMA_TIMEOUT="360"
 python run_app.py --host 127.0.0.1 --port 8000
 ```
@@ -195,7 +212,7 @@ data/tw_stock_screener.sqlite
 | `ENABLE_SCHEDULER` | `0` | 設為 `1` 時啟用台北時間盤後自動更新 |
 | `STOCK_DB_PATH` | `data/tw_stock_screener.sqlite` | 自訂 SQLite 資料庫路徑 |
 | `OLLAMA_HOST` | `http://127.0.0.1:11434` | Ollama API 位址 |
-| `OLLAMA_MODEL` | `qwen3.5:9b` | 預設 AI 模型 |
+| `OLLAMA_MODEL` | `qwen3:4b` | 預設 AI 模型 |
 | `OLLAMA_TIMEOUT` | `360` | AI 生成 timeout 秒數 |
 
 自訂掃描清單範例：
@@ -267,6 +284,8 @@ Invoke-RestMethod -Method Post `
 GET /api/ai/status
 POST /api/ai/analyze-stock
 POST /api/ai/analyze-position
+POST /api/ai/analyze-stock-stream
+POST /api/ai/analyze-position-stream
 ```
 
 ## 測試與檢查

@@ -33,6 +33,11 @@
             Ollama 模型
             <select id="modelSelect"></select>
           </label>
+          <p id="modelHint" class="fieldHint">模型載入中</p>
+          <label class="checkboxRow">
+            <input id="thinkingToggle" type="checkbox" checked />
+            <span>啟用 thinking 模式，支援的模型會即時顯示思考內容，完成後自動摺疊</span>
+          </label>
           <label>
             追加問題
             <textarea id="stockQuestion" rows="4" placeholder="例如：是否適合今天追價？應該等哪個價位？"></textarea>

@@ -15,7 +15,7 @@ class FakeOllama:
     def models(self):
         return []
 
-    def generate(self, prompt: str, model: str = "", temperature: float = 0.2) -> str:
+    def generate(self, prompt: str, model: str = "", temperature: float = 0.2, think: bool = False) -> str:
         self.last_prompt = prompt
         return "一句話結論：偏多，但需守停損。"
 

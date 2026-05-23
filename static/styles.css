@@ -240,6 +240,43 @@ textarea {
   min-height: 18px;
 }
 
+.fieldHint {
+  margin: -4px 0 2px;
+  border: 1px solid rgba(120, 183, 255, 0.22);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgba(120, 183, 255, 0.06);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.checkboxRow {
+  min-height: 44px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgba(16, 24, 33, 0.72);
+  color: var(--ink);
+}
+
+.checkboxRow input {
+  width: 18px;
+  min-height: 18px;
+  margin-top: 2px;
+}
+
+.checkboxRow span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(620px, 1.15fr) minmax(390px, 0.85fr);
@@ -528,6 +565,84 @@ textarea {
 .aiOutputMessage.isError {
   color: var(--danger);
   background: rgba(227, 93, 106, 0.08);
+}
+
+.aiLiveShell {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 14px;
+}
+
+.aiLiveStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid rgba(120, 183, 255, 0.28);
+  border-radius: 8px;
+  padding: 9px 11px;
+  background: rgba(120, 183, 255, 0.07);
+  color: var(--accent);
+  font-weight: 760;
+}
+
+.aiLiveShell.isDone .aiLiveStatus {
+  color: var(--muted);
+  background: rgba(16, 24, 33, 0.9);
+}
+
+.aiLiveShell.isDone .aiLiveStatus .spinner {
+  display: none;
+}
+
+.aiThinkingBox {
+  border: 1px solid rgba(243, 178, 78, 0.28);
+  border-radius: 8px;
+  background: rgba(243, 178, 78, 0.06);
+  overflow: hidden;
+}
+
+.aiThinkingBox[hidden] {
+  display: none;
+}
+
+.aiThinkingBox summary {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--amber);
+  font-weight: 800;
+}
+
+.aiThinkingBox summary small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.aiThinkingText {
+  max-height: 240px;
+  overflow: auto;
+  margin: 0;
+  border-top: 1px solid rgba(243, 178, 78, 0.2);
+  padding: 12px;
+  color: #c5cfdb;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 12px/1.55 Consolas, "Cascadia Mono", monospace;
+}
+
+.aiAnswerLive {
+  display: grid;
+  gap: 10px;
+}
+
+.aiLiveShell .aiReport {
+  padding: 0;
 }
 
 .aiReport {

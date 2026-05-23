@@ -71,10 +71,20 @@ class StockScreenerHandler(BaseHTTPRequestHandler):
             body.pop("demo", None)
             self._json(ai_service.analyze_stock(body))
             return
+        if parsed.path == "/api/ai/analyze-stock-stream":
+            body = self._read_json()
+            body.pop("demo", None)
+            self._ai_stream(ai_service.prepare_stock_analysis(body))
+            return
         if parsed.path == "/api/ai/analyze-position":
             body = self._read_json()
             body.pop("demo", None)
             self._json(ai_service.analyze_position(body))
+            return
+        if parsed.path == "/api/ai/analyze-position-stream":
+            body = self._read_json()
+            body.pop("demo", None)
+            self._ai_stream(ai_service.prepare_position_analysis(body))
             return
         if parsed.path == "/api/portfolio":
             try:
@@ -125,6 +135,26 @@ class StockScreenerHandler(BaseHTTPRequestHandler):
             self.wfile.write(body)
         except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
             return
+
+    def _ai_stream(self, request: object) -> None:
+        try:
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Connection", "keep-alive")
+            self.end_headers()
+            if isinstance(request, dict):
+                self._write_sse("error", request)
+                return
+            for event in ai_service.stream_response(request):
+                self._write_sse(str(event.get("event") or "message"), event.get("data") or {})
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            return
+
+    def _write_sse(self, event_name: str, payload: dict) -> None:
+        body = f"event: {event_name}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n".encode("utf-8")
+        self.wfile.write(body)
+        self.wfile.flush()
 
     def _static(self, path: str) -> None:
         requested = "index.html" if path in {"", "/"} else path.lstrip("/")

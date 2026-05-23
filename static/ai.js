@@ -9,6 +9,8 @@ const aiElements = {
   status: document.querySelector("#ollamaStatus"),
   stockSelect: document.querySelector("#stockSelect"),
   modelSelect: document.querySelector("#modelSelect"),
+  modelHint: document.querySelector("#modelHint"),
+  thinkingToggle: document.querySelector("#thinkingToggle"),
   savedPositionSelect: document.querySelector("#savedPositionSelect"),
   stockQuestion: document.querySelector("#stockQuestion"),
   stockAnalyzeBtn: document.querySelector("#stockAnalyzeBtn"),
@@ -63,15 +65,40 @@ async function loadAIStatus() {
 function renderModels() {
   if (!aiState.models.length) {
     aiElements.modelSelect.innerHTML = `<option value="${escapeHtml(aiState.defaultModel)}">${escapeHtml(aiState.defaultModel || "qwen3.5:9b")}</option>`;
+    updateModelHint();
     return;
   }
   aiElements.modelSelect.innerHTML = aiState.models
     .map((model) => {
-      const label = `${model.name}${model.parameter_size ? ` · ${model.parameter_size}` : ""}${model.quantization_level ? ` · ${model.quantization_level}` : ""}`;
+      const label = [
+        model.name,
+        model.parameter_size || "",
+        model.quantization_level || "",
+        model.size ? formatBytes(model.size) : "",
+      ].filter(Boolean).join(" · ");
       return `<option value="${escapeHtml(model.name)}">${escapeHtml(label)}</option>`;
     })
     .join("");
   aiElements.modelSelect.value = aiState.defaultModel || aiState.models[0].name;
+  updateModelHint();
+}
+
+function updateModelHint() {
+  const selected = aiElements.modelSelect.value || aiState.defaultModel || "";
+  const hint = modelHint(selected);
+  aiElements.modelHint.textContent = hint;
+  aiElements.thinkingToggle.disabled = !selected;
+}
+
+function modelHint(modelName) {
+  const name = String(modelName || "").toLowerCase();
+  if (!name) return "尚未偵測到模型，請確認 WSL Ollama 已啟動。";
+  if (name.includes("qwen3:4b")) return "推薦日常分析：中文表現穩、支援 thinking，速度與品質平衡。";
+  if (name.includes("qwen3:1.7b")) return "推薦快速分析：支援 thinking，回覆速度較快，適合先看方向。";
+  if (name.includes("qwen3.5")) return "品質較高但較慢：適合需要更完整推理的分析。";
+  if (name.includes("gemma4")) return "Gemma 4：較大、推理能力佳，第一次載入可能比較久。";
+  if (name.includes("gemma3:1b")) return "超輕量備用：速度快，但投資分析細節可能較粗。";
+  return "可用模型：若支援 thinking，開啟後會顯示即時思考內容。";
 }
 
 async function loadStocks() {
@@ -126,17 +153,14 @@ async function analyzeStock() {
   setBusy(aiElements.stockAnalyzeBtn, true, "AI 分析中");
   showLoading("Ollama 正在生成單檔分析");
   aiElements.stockOutputMeta.textContent = "Ollama 生成中";
-  setOutputMessage(aiElements.stockOutput, "模型正在閱讀技術面、籌碼面、情緒面與風控資料...", "isLoading");
+  prepareStreamingOutput(aiElements.stockOutput, "模型正在閱讀技術面、籌碼面、情緒面與風控資料...");
   try {
-    const payload = await fetchJson("/api/ai/analyze-stock", {
-      method: "POST",
-      body: JSON.stringify({
-        stock_id: stockId,
-        model: aiElements.modelSelect.value,
-        question: aiElements.stockQuestion.value,
-      }),
-    });
-    renderAIResult(payload, aiElements.stockOutput, aiElements.stockOutputMeta);
+    await streamAIAnalysis("/api/ai/analyze-stock-stream", {
+      stock_id: stockId,
+      model: aiElements.modelSelect.value,
+      question: aiElements.stockQuestion.value,
+      think: aiElements.thinkingToggle.checked,
+    }, aiElements.stockOutput, aiElements.stockOutputMeta);
   } catch (error) {
     aiElements.stockOutputMeta.textContent = "分析失敗";
     setOutputMessage(aiElements.stockOutput, error.message, "isError");
@@ -153,23 +177,20 @@ async function analyzePosition() {
   setBusy(aiElements.positionAnalyzeBtn, true, "AI 分析中");
   showLoading("Ollama 正在生成持股策略");
   aiElements.positionOutputMeta.textContent = "Ollama 生成中";
-  setOutputMessage(aiElements.positionOutput, "模型正在整合持股成本、系統分數與風控條件...", "isLoading");
+  prepareStreamingOutput(aiElements.positionOutput, "模型正在整合持股成本、系統分數與風控條件...");
   try {
-    const payload = await fetchJson("/api/ai/analyze-position", {
-      method: "POST",
-      body: JSON.stringify({
-        stock_id: stockId,
-        model: aiElements.modelSelect.value,
-        position_id: aiElements.savedPositionSelect.value,
-        shares: aiElements.sharesInput.value,
-        average_cost: aiElements.averageCostInput.value,
-        position_status: aiElements.positionStatus.value,
-        horizon: aiElements.horizonInput.value,
-        risk_profile: aiElements.riskProfile.value,
-        notes: aiElements.positionNotes.value,
-      }),
-    });
-    renderAIResult(payload, aiElements.positionOutput, aiElements.positionOutputMeta);
+    await streamAIAnalysis("/api/ai/analyze-position-stream", {
+      stock_id: stockId,
+      model: aiElements.modelSelect.value,
+      position_id: aiElements.savedPositionSelect.value,
+      shares: aiElements.sharesInput.value,
+      average_cost: aiElements.averageCostInput.value,
+      position_status: aiElements.positionStatus.value,
+      horizon: aiElements.horizonInput.value,
+      risk_profile: aiElements.riskProfile.value,
+      notes: aiElements.positionNotes.value,
+      think: aiElements.thinkingToggle.checked,
+    }, aiElements.positionOutput, aiElements.positionOutputMeta);
   } catch (error) {
     aiElements.positionOutputMeta.textContent = "分析失敗";
     setOutputMessage(aiElements.positionOutput, error.message, "isError");
@@ -177,6 +198,163 @@ async function analyzePosition() {
     setBusy(aiElements.positionAnalyzeBtn, false, "分析我的買賣策略");
     hideLoading();
   }
+}
+
+function prepareStreamingOutput(outputElement, message) {
+  outputElement.className = "aiOutput aiLiveShell";
+  outputElement.innerHTML = `
+    <div class="aiLiveStatus">
+      <span class="spinner"></span>
+      <span>${escapeHtml(message)}</span>
+    </div>
+    <details class="aiThinkingBox" open hidden>
+      <summary>
+        <span>模型思考中</span>
+        <small>完成後會自動摺疊</small>
+      </summary>
+      <pre class="aiThinkingText"></pre>
+    </details>
+    <div class="aiAnswerLive">
+      <div class="aiOutputMessage isLoading">等待模型開始輸出答案...</div>
+    </div>
+  `;
+}
+
+async function streamAIAnalysis(endpoint, body, outputElement, metaElement) {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok || !response.body) {
+    throw new Error(`${response.status} ${response.statusText}`);
+  }
+
+  const state = {
+    model: body.model || "",
+    analysisType: "",
+    content: "",
+    thinking: "",
+    hasContent: false,
+    hasThinking: false,
+  };
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const blocks = buffer.split(/\n\n/);
+    buffer = blocks.pop() || "";
+    for (const block of blocks) {
+      handleStreamEvent(parseSseBlock(block), state, outputElement, metaElement);
+    }
+  }
+  if (buffer.trim()) {
+    handleStreamEvent(parseSseBlock(buffer), state, outputElement, metaElement);
+  }
+}
+
+function parseSseBlock(block) {
+  const event = { name: "message", data: {} };
+  const dataLines = [];
+  block.split(/\r?\n/).forEach((line) => {
+    if (line.startsWith("event:")) {
+      event.name = line.slice(6).trim();
+    } else if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trimStart());
+    }
+  });
+  if (dataLines.length) {
+    event.data = JSON.parse(dataLines.join("\n"));
+  }
+  return event;
+}
+
+function handleStreamEvent(event, state, outputElement, metaElement) {
+  const data = event.data || {};
+  if (event.name === "meta") {
+    state.model = data.model || state.model;
+    state.analysisType = data.analysis_type || "";
+    metaElement.textContent = `${state.model} · ${state.analysisType} · 生成中`;
+    return;
+  }
+  if (event.name === "thinking") {
+    state.thinking += data.content || "";
+    state.hasThinking = true;
+    updateThinkingBox(outputElement, state.thinking, true);
+    metaElement.textContent = `${state.model} · thinking`;
+    return;
+  }
+  if (event.name === "content") {
+    state.content += data.content || "";
+    state.hasContent = true;
+    updateLiveAnswer(outputElement, state.content, false);
+    metaElement.textContent = `${state.model} · 回覆生成中`;
+    return;
+  }
+  if (event.name === "done") {
+    state.content = data.content || state.content;
+    state.thinking = data.thinking || state.thinking;
+    const split = splitModelThinking(state.content);
+    if (!state.thinking && split.thinking) {
+      state.thinking = split.thinking;
+      state.content = split.content;
+      state.hasThinking = true;
+    }
+    updateThinkingBox(outputElement, state.thinking, false);
+    updateLiveAnswer(outputElement, state.content || "沒有回覆內容", true);
+    outputElement.classList.add("isDone");
+    metaElement.textContent = `${data.model || state.model} · ${data.analysis_type || state.analysisType} · 完成`;
+    return;
+  }
+  if (event.name === "error") {
+    throw new Error(data.message || data.error || "Ollama 分析失敗");
+  }
+}
+
+function updateThinkingBox(outputElement, thinking, isOpen) {
+  const box = outputElement.querySelector(".aiThinkingBox");
+  const text = outputElement.querySelector(".aiThinkingText");
+  if (!box || !text) return;
+  const normalized = String(thinking || "").trim();
+  if (!normalized) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  box.open = Boolean(isOpen);
+  text.textContent = normalized;
+  text.scrollTop = text.scrollHeight;
+}
+
+function updateLiveAnswer(outputElement, content, done) {
+  const answer = outputElement.querySelector(".aiAnswerLive");
+  if (!answer) return;
+  const normalized = String(content || "").trim();
+  if (!normalized) {
+    answer.innerHTML = `<div class="aiOutputMessage isLoading">等待模型開始輸出答案...</div>`;
+    return;
+  }
+  answer.className = "aiAnswerLive";
+  answer.innerHTML = formatAIReport(normalized);
+  const status = outputElement.querySelector(".aiLiveStatus span:last-child");
+  if (status) status.textContent = done ? "分析完成，thinking 內容已摺疊保存。" : "答案正在生成中，可以先閱讀已輸出的段落。";
+}
+
+function splitModelThinking(content) {
+  const text = String(content || "");
+  const xmlMatch = text.match(/<think>([\s\S]*?)<\/think>\s*([\s\S]*)/i);
+  if (xmlMatch) {
+    return { thinking: xmlMatch[1].trim(), content: xmlMatch[2].trim() };
+  }
+  const channelMatch = text.match(/<\|channel\>thought\s*([\s\S]*?)<channel\|>\s*([\s\S]*)/i);
+  if (channelMatch) {
+    return { thinking: channelMatch[1].trim(), content: channelMatch[2].trim() };
+  }
+  return { thinking: "", content: text };
 }
 
 function renderAIResult(payload, outputElement, metaElement) {
@@ -330,6 +508,20 @@ function formatPct(value) {
   return `${Number(value || 0).toFixed(2)}%`;
 }
 
+function formatBytes(value) {
+  const bytes = Number(value || 0);
+  if (!bytes) return "";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = bytes;
+  let unitIndex = 0;
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex += 1;
+  }
+  const digits = unitIndex >= 3 ? 1 : 0;
+  return `${size.toFixed(digits)} ${units[unitIndex]}`;
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -367,6 +559,7 @@ function ensureLoadingToast() {
 aiElements.savedPositionSelect.addEventListener("change", () => {
   applySavedPosition(aiElements.savedPositionSelect.value);
 });
+aiElements.modelSelect.addEventListener("change", updateModelHint);
 aiElements.stockAnalyzeBtn.addEventListener("click", analyzeStock);
 aiElements.positionAnalyzeBtn.addEventListener("click", analyzePosition);
 

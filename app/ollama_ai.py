@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import urllib.request
 from dataclasses import dataclass
+from collections.abc import Iterator
 from typing import Any
 
 from .config import OLLAMA_HOST, OLLAMA_MODEL, OLLAMA_TIMEOUT
@@ -20,6 +21,15 @@ class OllamaModel:
     size: int = 0
     parameter_size: str = ""
     quantization_level: str = ""
+
+
+@dataclass(frozen=True)
+class AIAnalysisRequest:
+    stock_id: str
+    model: str
+    prompt: str
+    analysis_type: str
+    think: bool = False
 
 
 class OllamaClient:
@@ -48,7 +58,7 @@ class OllamaClient:
         except Exception:
             return False
 
-    def generate(self, prompt: str, model: str = "", temperature: float = 0.2) -> str:
+    def generate(self, prompt: str, model: str = "", temperature: float = 0.2, think: bool = False) -> dict[str, str]:
         selected_model = model or self.default_model
         payload = self._json_request(
             "/api/generate",
@@ -57,6 +67,7 @@ class OllamaClient:
                 "model": selected_model,
                 "prompt": prompt,
                 "stream": False,
+                "think": think,
                 "options": {
                     "temperature": temperature,
                     "num_ctx": 8192,
@@ -65,9 +76,56 @@ class OllamaClient:
             timeout=OLLAMA_TIMEOUT,
         )
         response = str(payload.get("response") or "").strip()
+        thinking = str(payload.get("thinking") or "").strip()
         if not response:
             raise OllamaError("Ollama returned an empty response.")
-        return response
+        return {"content": response, "thinking": thinking}
+
+    def generate_stream(
+        self,
+        prompt: str,
+        model: str = "",
+        temperature: float = 0.2,
+        think: bool = False,
+    ) -> Iterator[dict[str, str]]:
+        selected_model = model or self.default_model
+        body = {
+            "model": selected_model,
+            "prompt": prompt,
+            "stream": True,
+            "think": think,
+            "options": {
+                "temperature": temperature,
+                "num_ctx": 8192,
+            },
+        }
+        data = json.dumps(body, ensure_ascii=False).encode("utf-8")
+        request = urllib.request.Request(
+            f"{self.host}/api/generate",
+            data=data,
+            method="POST",
+            headers={"Content-Type": "application/json; charset=utf-8"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=OLLAMA_TIMEOUT) as response:
+                for raw_line in response:
+                    line = raw_line.decode("utf-8").strip()
+                    if not line:
+                        continue
+                    payload = json.loads(line)
+                    if payload.get("error"):
+                        raise OllamaError(str(payload.get("error")))
+                    message = payload.get("message") or {}
+                    thinking = str(payload.get("thinking") or message.get("thinking") or "")
+                    content = str(payload.get("response") or message.get("content") or "")
+                    if thinking:
+                        yield {"type": "thinking", "content": thinking}
+                    if content:
+                        yield {"type": "content", "content": content}
+                    if payload.get("done"):
+                        yield {"type": "done", "content": ""}
+        except Exception as exc:
+            raise OllamaError(str(exc)) from exc
 
     def _json_request(
         self,
@@ -120,6 +178,12 @@ class AIAnalysisService:
             }
 
     def analyze_stock(self, body: dict[str, Any]) -> dict[str, Any]:
+        request = self.prepare_stock_analysis(body)
+        if isinstance(request, dict):
+            return request
+        return self._generate_response(request)
+
+    def prepare_stock_analysis(self, body: dict[str, Any]) -> AIAnalysisRequest | dict[str, Any]:
         stock_id = str(body.get("stock_id") or "").strip()
         if not stock_id:
             return {"error": "missing_stock_id"}
@@ -130,9 +194,15 @@ class AIAnalysisService:
         model = str(body.get("model") or self.ollama.default_model)
         question = str(body.get("question") or "").strip()
         prompt = self._stock_prompt(report, question)
-        return self._generate_response(stock_id, model, prompt, "stock_analysis")
+        return AIAnalysisRequest(stock_id, model, prompt, "stock_analysis", _bool(body.get("think")))
 
     def analyze_position(self, body: dict[str, Any]) -> dict[str, Any]:
+        request = self.prepare_position_analysis(body)
+        if isinstance(request, dict):
+            return request
+        return self._generate_response(request)
+
+    def prepare_position_analysis(self, body: dict[str, Any]) -> AIAnalysisRequest | dict[str, Any]:
         saved_position = None
         position_id = body.get("position_id")
         if self.portfolio and position_id not in (None, ""):
@@ -150,7 +220,7 @@ class AIAnalysisService:
         model = str(body.get("model") or self.ollama.default_model)
         position = self._position_context(body, saved_position)
         prompt = self._position_prompt(report, position)
-        return self._generate_response(stock_id, model, prompt, "position_analysis")
+        return AIAnalysisRequest(stock_id, model, prompt, "position_analysis", _bool(body.get("think")))
 
     def _position_context(self, body: dict[str, Any], saved_position: dict[str, Any] | None) -> dict[str, Any]:
         saved_position = saved_position or {}
@@ -170,20 +240,73 @@ class AIAnalysisService:
             "補充說明": body.get("notes") or saved_position.get("notes") or "",
         }
 
-    def _generate_response(self, stock_id: str, model: str, prompt: str, analysis_type: str) -> dict[str, Any]:
+    def stream_response(self, request: AIAnalysisRequest) -> Iterator[dict[str, Any]]:
+        content_parts: list[str] = []
+        thinking_parts: list[str] = []
+        yield {
+            "event": "meta",
+            "data": {
+                "stock_id": request.stock_id,
+                "model": request.model,
+                "analysis_type": request.analysis_type,
+                "think": request.think,
+            },
+        }
         try:
-            text = self.ollama.generate(prompt, model=model)
+            for chunk in self.ollama.generate_stream(request.prompt, model=request.model, think=request.think):
+                chunk_type = chunk.get("type")
+                content = chunk.get("content") or ""
+                if chunk_type == "thinking" and content:
+                    thinking_parts.append(content)
+                    yield {"event": "thinking", "data": {"content": content}}
+                elif chunk_type == "content" and content:
+                    content_parts.append(content)
+                    yield {"event": "content", "data": {"content": content}}
+            yield {
+                "event": "done",
+                "data": {
+                    "stock_id": request.stock_id,
+                    "model": request.model,
+                    "analysis_type": request.analysis_type,
+                    "think": request.think,
+                    "content": "".join(content_parts).strip(),
+                    "thinking": "".join(thinking_parts).strip(),
+                },
+            }
+        except OllamaError as exc:
+            yield {
+                "event": "error",
+                "data": {
+                    "stock_id": request.stock_id,
+                    "model": request.model,
+                    "analysis_type": request.analysis_type,
+                    "error": "ollama_error",
+                    "message": str(exc),
+                },
+            }
+
+    def _generate_response(self, request: AIAnalysisRequest) -> dict[str, Any]:
+        try:
+            result = self.ollama.generate(request.prompt, model=request.model, think=request.think)
+            thinking = ""
+            if isinstance(result, dict):
+                text = str(result.get("content") or "")
+                thinking = str(result.get("thinking") or "")
+            else:
+                text = str(result)
             return {
-                "stock_id": stock_id,
-                "model": model,
-                "analysis_type": analysis_type,
+                "stock_id": request.stock_id,
+                "model": request.model,
+                "analysis_type": request.analysis_type,
                 "content": text,
+                "thinking": thinking,
+                "think": request.think,
             }
         except OllamaError as exc:
             return {
-                "stock_id": stock_id,
-                "model": model,
-                "analysis_type": analysis_type,
+                "stock_id": request.stock_id,
+                "model": request.model,
+                "analysis_type": request.analysis_type,
                 "error": "ollama_error",
                 "message": str(exc),
             }
@@ -313,3 +436,11 @@ def _compact_report(report: dict[str, Any]) -> dict[str, Any]:
             for item in (report.get("news") or [])[:6]
         ],
     }
+
+
+def _bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "on", "y"}

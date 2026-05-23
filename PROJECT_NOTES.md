@@ -9,7 +9,7 @@
 - 首頁篩選儀表板可載入正式掃描資料。
 - 個股完整分析頁可顯示互動 K 線、價量、技術指標與趨勢線工具。
 - 持股紀錄可新增、刪除並計算未實現損益。
-- AI 分析頁可連線到本機 Ollama 狀態 API。
+- AI 分析頁可連線到本機 Ollama 狀態 API，並支援模型選擇與 SSE 串流 thinking 顯示。
 - 公開網站流程已移除示範資料模式。
 - `/api/...` 未知路由會回 JSON 404，不再 fallback 成首頁。
 - server 已處理瀏覽器中斷連線造成的 `ConnectionAbortedError` / `BrokenPipeError` 類雜訊。
@@ -75,8 +75,9 @@ Invoke-RestMethod http://127.0.0.1:8000/api/health
 1. AI 頁讀取 `/api/ai/status` 確認 Ollama 是否可用。
 2. 單檔分析會讀取正式股票 report，組成 prompt。
 3. 持股分析可附加保存的持股紀錄。
-4. `OllamaClient` 呼叫 `POST /api/generate`。
-5. 前端把 AI 文字整理成報告卡片。
+4. 一般 API 會用非串流 `POST /api/generate` 回傳完整分析。
+5. 前端 AI 頁使用 `/api/ai/analyze-*-stream`，由後端轉成 SSE 事件。
+6. 若 Ollama 回傳 `thinking` 欄位，前端會即時顯示；完成後自動摺疊，答案仍整理成報告卡片。
 
 ## 已修正或遇過的問題
 
@@ -96,10 +97,12 @@ Invoke-RestMethod http://127.0.0.1:8000/api/health
 
 建議：
 
-- WSL 先執行 `ollama run qwen3.5:9b "OK"` 暖機。
+- WSL 先執行 `ollama run qwen3:4b "OK"` 暖機。
 - PowerShell 設定 `$env:OLLAMA_TIMEOUT="600"` 後重啟網站。
 - 追加問題不要一次寫太長。
-- 若仍慢，可以換較小模型並設定 `OLLAMA_MODEL`。
+- 若仍慢，可以在 AI 頁改選 `qwen3:1.7b` 或 `qwen3:4b`。
+- 目前 WSL 已安裝 `qwen3:1.7b`、`qwen3:4b`、`gemma3:1b`、`gemma4:e2b`、`qwen3.5:9b`。
+- `gemma4:e2b` 約 7.2GB，下載與第一次載入時間可能很長；若重新安裝時中斷可重跑 `ollama pull gemma4:e2b`。
 
 ### WSL / Windows 連線
 
