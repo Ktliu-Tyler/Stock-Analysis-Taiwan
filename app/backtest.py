@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from .models import InstitutionalFlow, MarginBalance, NewsItem, PriceBar, Stock
-from .scoring import score_stock
+from .scoring import ANALYSIS_MODE_CONFIGS, normalize_analysis_mode, score_stock
 
 
 def run_backtest(
@@ -10,11 +10,18 @@ def run_backtest(
     flows_by_stock: dict[str, list[InstitutionalFlow]] | None = None,
     margins_by_stock: dict[str, list[MarginBalance]] | None = None,
     news_by_stock: dict[str, list[NewsItem]] | None = None,
+    analysis_mode: str = "short",
 ) -> dict:
     flows_by_stock = flows_by_stock or {}
     margins_by_stock = margins_by_stock or {}
     news_by_stock = news_by_stock or {}
-    horizons = [1, 3, 5]
+    mode = normalize_analysis_mode(analysis_mode)
+    mode_config = ANALYSIS_MODE_CONFIGS[mode]
+    horizons = {
+        "short": [1, 3, 5],
+        "swing": [10, 20, 40],
+        "long": [20, 60, 90],
+    }[mode]
     results = []
     for horizon in horizons:
         trades = []
@@ -39,10 +46,11 @@ def run_backtest(
                         news_by_stock.get(stock.stock_id, []),
                         run_date=day,
                         data_source="backtest",
+                        analysis_mode=mode,
                     )
                 except ValueError:
                     continue
-                if score.buy_score < 68 or score.risk_score < 45:
+                if score.buy_score < float(mode_config["min_watch_score"]) + 8 or score.risk_score < float(mode_config["min_risk_score"]) - 5:
                     continue
                 entry = prices[index].close
                 exit_price = prices[index + horizon].close
@@ -63,7 +71,7 @@ def run_backtest(
                 "max_drawdown": round(_max_drawdown(equity_curve) * 100, 2),
             }
         )
-    return {"strategy": "score>=68 and risk>=45", "results": results}
+    return {"strategy": f"{mode_config['label']} score/risk mode", "analysis_mode": mode, "analysis_mode_label": mode_config["label"], "results": results}
 
 
 def _max_drawdown(equity_curve: list[float]) -> float:
@@ -76,4 +84,3 @@ def _max_drawdown(equity_curve: list[float]) -> float:
         if peak:
             drawdown = min(drawdown, value / peak - 1)
     return abs(drawdown)
-

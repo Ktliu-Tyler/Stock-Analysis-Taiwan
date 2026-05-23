@@ -188,7 +188,8 @@ class AIAnalysisService:
         if not stock_id:
             return {"error": "missing_stock_id"}
         include_demo = bool(body.get("demo", False))
-        report = self.screener.stock_report(stock_id, include_demo=include_demo)
+        analysis_mode = str(body.get("analysis_mode") or body.get("mode") or "short")
+        report = self.screener.stock_report(stock_id, include_demo=include_demo, analysis_mode=analysis_mode)
         if report.get("error"):
             return report
         model = str(body.get("model") or self.ollama.default_model)
@@ -214,7 +215,8 @@ class AIAnalysisService:
         if not stock_id:
             return {"error": "missing_stock_id"}
         include_demo = bool(body.get("demo", False))
-        report = self.screener.stock_report(stock_id, include_demo=include_demo)
+        analysis_mode = str(body.get("analysis_mode") or body.get("mode") or "short")
+        report = self.screener.stock_report(stock_id, include_demo=include_demo, analysis_mode=analysis_mode)
         if report.get("error"):
             return report
         model = str(body.get("model") or self.ollama.default_model)
@@ -408,6 +410,10 @@ def _compact_report(report: dict[str, Any]) -> dict[str, Any]:
             "avoid_reason": score.get("avoid_reason"),
             "data_freshness": score.get("data_freshness"),
         },
+        "analysis_mode": details.get("analysis_mode"),
+        "analysis_mode_label": details.get("analysis_mode_label"),
+        "analysis_mode_description": details.get("analysis_mode_description"),
+        "portfolio_horizon": details.get("portfolio_horizon"),
         "direction": details.get("direction"),
         "investment_advice": details.get("investment_advice"),
         "local_rule_model": details.get("local_model"),

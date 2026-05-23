@@ -64,12 +64,14 @@ body {
 
 .topbar,
 .filters,
+.modeSwitch,
 .layout,
 .stockWorkspace,
 .stockFullWidth,
 .aiLayout,
 .portfolioLayout,
 .portfolioSummary,
+.portfolioGroups,
 .backtestPanel,
 footer {
   width: min(1480px, calc(100vw - 32px));
@@ -120,6 +122,48 @@ h3 {
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.modeSwitch {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+  margin-bottom: 12px;
+}
+
+.compactModeSwitch {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.modeButton {
+  min-height: 64px;
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(16, 24, 33, 0.92);
+  color: var(--ink);
+  box-shadow: none;
+  text-align: left;
+}
+
+.modeButton strong {
+  font-size: 16px;
+}
+
+.modeButton span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.modeButton.active {
+  border-color: rgba(120, 183, 255, 0.72);
+  background: linear-gradient(180deg, rgba(120, 183, 255, 0.18), rgba(101, 214, 198, 0.08));
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 button {
@@ -474,6 +518,43 @@ textarea {
   margin-top: 8px;
 }
 
+.portfolioGroups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.groupCard {
+  min-height: 86px;
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(16, 24, 33, 0.94);
+  color: var(--ink);
+  text-align: left;
+  box-shadow: var(--shadow);
+}
+
+.groupCard.active {
+  border-color: rgba(101, 214, 198, 0.65);
+  box-shadow: inset 3px 0 0 var(--teal), var(--shadow);
+}
+
+.groupCard span,
+.groupCard small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.groupCard strong {
+  font-size: 22px;
+}
+
 .summaryItem {
   min-height: 76px;
   padding: 12px;
@@ -520,6 +601,43 @@ textarea {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.horizonPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  margin-right: 7px;
+  border-radius: 999px;
+  padding: 0 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.closedPosition {
+  opacity: 0.72;
+}
+
+.sellEditorRow td {
+  background: rgba(120, 183, 255, 0.05);
+}
+
+.sellEditor {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(120px, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+  padding: 10px;
+}
+
+.sellEditor label {
+  min-width: 0;
+}
+
+.compactForm {
+  gap: 10px;
 }
 
 .rowActions .buttonLink,
@@ -1378,6 +1496,7 @@ footer {
   .stockWorkspace,
   .aiLayout,
   .portfolioLayout,
+  .sellEditor,
   .decisionBlock,
   .breakdownGrid {
     grid-template-columns: 1fr;
@@ -1395,9 +1514,11 @@ footer {
   }
 
   .filters,
+  .modeSwitch,
   .scoreGrid,
   .backtestRows,
   .portfolioSummary,
+  .portfolioGroups,
   .advicePanel,
   .probGrid,
   .aiFact {
@@ -1406,12 +1527,14 @@ footer {
 
   .topbar,
   .filters,
+  .modeSwitch,
   .layout,
   .stockWorkspace,
   .stockFullWidth,
   .aiLayout,
   .portfolioLayout,
   .portfolioSummary,
+  .portfolioGroups,
   .backtestPanel,
   footer {
     width: min(100vw - 18px, 1480px);

@@ -27,6 +27,8 @@ class ServiceTests(unittest.TestCase):
             service.run(use_demo=True)
             payload = service.backtest(include_demo=True)
             self.assertEqual([item["horizon_days"] for item in payload["results"]], [1, 3, 5])
+            swing_payload = service.backtest(include_demo=True, analysis_mode="swing")
+            self.assertEqual([item["horizon_days"] for item in swing_payload["results"]], [10, 20, 40])
 
     def test_demo_scores_do_not_appear_in_default_today_scores(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -55,8 +57,12 @@ class ServiceTests(unittest.TestCase):
             payload = portfolio.list_positions()
             self.assertEqual(payload["summary"]["positions"], 1)
             self.assertGreater(payload["items"][0]["market_value"], 0)
-            portfolio.delete_position(created["id"])
+            sold = portfolio.sell_position(created["id"], {"sell_price": 70, "sell_shares": 1000})
+            self.assertTrue(sold["position"]["closed"])
+            self.assertGreater(sold["position"]["realized_pnl"], 0)
             self.assertEqual(portfolio.list_positions()["summary"]["positions"], 0)
+            portfolio.delete_position(created["id"])
+            self.assertEqual(portfolio.list_positions()["summary"]["all_positions"], 0)
 
 
 if __name__ == "__main__":

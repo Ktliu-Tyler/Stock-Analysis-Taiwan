@@ -9,7 +9,7 @@ from .config import DEFAULT_WATCHLIST
 from .data_sources import DataFetchError, MarketDataClient
 from .fixtures import demo_market
 from .models import InstitutionalFlow, MarginBalance, NewsItem, PriceBar, ScoreResult, Stock
-from .scoring import score_stock
+from .scoring import analysis_mode_options, normalize_analysis_mode, score_stock
 from .storage import Storage
 
 
@@ -26,9 +26,10 @@ class ScreenerService:
             self._demo_storage = Storage(self._demo_db_path)
         return self._demo_storage
 
-    def run(self, use_demo: bool = False, mode: str = "after_hours") -> dict[str, Any]:
+    def run(self, use_demo: bool = False, mode: str = "after_hours", analysis_mode: str = "short") -> dict[str, Any]:
+        analysis_mode = normalize_analysis_mode(analysis_mode)
         if use_demo:
-            scores = self.load_demo_scores(mode=mode)
+            scores = self.load_demo_scores(mode=mode, analysis_mode=analysis_mode)
             return self._run_response(scores, source="demo")
 
         self.remove_demo_data(clear_market_data=False)
@@ -65,6 +66,7 @@ class ScreenerService:
             scores = self.score_universe(
                 [stock for stock in stocks if stock.stock_id in downloaded_stock_ids],
                 data_source=f"{universe_source}/{mode}",
+                analysis_mode=analysis_mode,
             )
             return self._run_response(scores, source=universe_source)
         except Exception as exc:
@@ -76,7 +78,8 @@ class ScreenerService:
                 "message": f"Real market data update failed; demo data was not used. {exc}",
             }
 
-    def load_demo_scores(self, mode: str = "after_hours") -> list[ScoreResult]:
+    def load_demo_scores(self, mode: str = "after_hours", analysis_mode: str = "short") -> list[ScoreResult]:
+        analysis_mode = normalize_analysis_mode(analysis_mode)
         self.demo_storage.purge_demo_artifacts([item["stock_id"] for item in DEFAULT_WATCHLIST])
         stocks, prices_by_stock, flows_by_stock, margins_by_stock, news_by_stock = demo_market()
         self.demo_storage.upsert_stocks(stocks)
@@ -92,6 +95,7 @@ class ScreenerService:
             run_date=f"demo-{date.today().isoformat()}",
             include_demo=True,
             storage=self.demo_storage,
+            analysis_mode=analysis_mode,
         )
 
     def score_universe(
@@ -101,7 +105,9 @@ class ScreenerService:
         run_date: str | None = None,
         include_demo: bool = False,
         storage: Storage | None = None,
+        analysis_mode: str = "short",
     ) -> list[ScoreResult]:
+        analysis_mode = normalize_analysis_mode(analysis_mode)
         storage = storage or self.storage
         run_date = run_date or date.today().isoformat()
         scores: list[ScoreResult] = []
@@ -113,7 +119,7 @@ class ScreenerService:
             flows = storage.get_institutional_flows(stock.stock_id)
             margins = storage.get_margin_balances(stock.stock_id)
             news = storage.get_news(stock.stock_id)
-            scores.append(score_stock(stock, prices, flows, margins, news, run_date=run_date, data_source=data_source))
+            scores.append(score_stock(stock, prices, flows, margins, news, run_date=run_date, data_source=data_source, analysis_mode=analysis_mode))
         scores.sort(key=lambda item: item.buy_score, reverse=True)
         storage.upsert_scores(scores)
         return scores
@@ -121,13 +127,16 @@ class ScreenerService:
     def today_scores(self, filters: dict[str, str] | None = None, auto_seed: bool = True) -> dict[str, Any]:
         filters = filters or {}
         include_demo = _bool_filter(filters.get("demo"))
+        analysis_mode = normalize_analysis_mode(filters.get("mode") or filters.get("analysis_mode"))
         storage = self.demo_storage if include_demo else self.storage
         scores = storage.get_scores(include_demo=include_demo)
         if include_demo and not scores and auto_seed:
-            scores = self.load_demo_scores()
+            scores = self.load_demo_scores(analysis_mode=analysis_mode)
         elif not include_demo and scores and auto_seed and not scores[0].details.get("analysis_version"):
             stocks = storage.get_stocks()
-            scores = self.score_universe(stocks, data_source="local/rescore", storage=storage)
+            scores = self.score_universe(stocks, data_source="local/rescore", storage=storage, analysis_mode=analysis_mode)
+        if scores:
+            scores = self._rescore_for_mode(scores, storage, analysis_mode, include_demo=include_demo)
         filtered = self._apply_filters(scores, filters)
         return {
             "run_date": storage.latest_run_date(include_demo=include_demo),
@@ -135,13 +144,16 @@ class ScreenerService:
             "items": [score.to_dict() for score in filtered],
             "industries": sorted({score.industry for score in scores}),
             "demo": include_demo,
+            "analysis_mode": analysis_mode,
+            "analysis_modes": analysis_mode_options(),
         }
 
-    def stock_report(self, stock_id: str, include_demo: bool = False) -> dict[str, Any]:
+    def stock_report(self, stock_id: str, include_demo: bool = False, analysis_mode: str = "short") -> dict[str, Any]:
+        analysis_mode = normalize_analysis_mode(analysis_mode)
         storage = self.demo_storage if include_demo else self.storage
         score = storage.get_score(stock_id, include_demo=include_demo)
         if include_demo and not score:
-            self.load_demo_scores()
+            self.load_demo_scores(analysis_mode=analysis_mode)
             score = storage.get_score(stock_id, include_demo=True)
         stock = storage.get_stock(stock_id)
         if not score or not stock:
@@ -150,24 +162,36 @@ class ScreenerService:
         flows = storage.get_institutional_flows(stock_id)
         margins = storage.get_margin_balances(stock_id)
         news = storage.get_news(stock_id)
+        if prices:
+            score = score_stock(stock, prices, flows, margins, news, run_date=score.run_date, data_source=score.data_freshness.split(" / ")[0], analysis_mode=analysis_mode)
         return {
             "stock": asdict(stock),
             "score": score.to_dict(),
-            "prices": [asdict(item) for item in prices[-90:]],
-            "institutional_flows": [asdict(item) for item in flows[-45:]],
-            "margin_balances": [asdict(item) for item in margins[-45:]],
+            "prices": [asdict(item) for item in prices[-240:]],
+            "institutional_flows": [asdict(item) for item in flows[-120:]],
+            "margin_balances": [asdict(item) for item in margins[-120:]],
             "news": [asdict(item) for item in news],
-            "signals": self.stock_signals(stock_id, include_demo=include_demo),
+            "signals": self.stock_signals(stock_id, include_demo=include_demo, analysis_mode=analysis_mode),
+            "analysis_mode": analysis_mode,
+            "analysis_modes": analysis_mode_options(),
         }
 
-    def stock_signals(self, stock_id: str, include_demo: bool = False) -> dict[str, Any]:
+    def stock_signals(self, stock_id: str, include_demo: bool = False, analysis_mode: str = "short") -> dict[str, Any]:
+        analysis_mode = normalize_analysis_mode(analysis_mode)
         storage = self.demo_storage if include_demo else self.storage
         score = storage.get_score(stock_id, include_demo=include_demo)
         if include_demo and not score:
-            self.load_demo_scores()
+            self.load_demo_scores(analysis_mode=analysis_mode)
             score = storage.get_score(stock_id, include_demo=True)
         if not score:
             return {"error": "stock_not_found", "stock_id": stock_id}
+        stock = storage.get_stock(stock_id)
+        prices = storage.get_prices(stock_id)
+        if stock and prices:
+            flows = storage.get_institutional_flows(stock_id)
+            margins = storage.get_margin_balances(stock_id)
+            news = storage.get_news(stock_id)
+            score = score_stock(stock, prices, flows, margins, news, run_date=score.run_date, data_source=score.data_freshness.split(" / ")[0], analysis_mode=analysis_mode)
         details = score.details
         latest_flow = details.get("latest_flow") or {}
         latest_margin = details.get("latest_margin") or {}
@@ -208,13 +232,16 @@ class ScreenerService:
                 "target_zone": score.target_zone,
                 "avoid_reason": score.avoid_reason,
             },
+            "analysis_mode": analysis_mode,
+            "analysis_modes": analysis_mode_options(),
         }
 
-    def backtest(self, include_demo: bool = False) -> dict[str, Any]:
+    def backtest(self, include_demo: bool = False, analysis_mode: str = "short") -> dict[str, Any]:
+        analysis_mode = normalize_analysis_mode(analysis_mode)
         storage = self.demo_storage if include_demo else self.storage
         scores = storage.get_scores(include_demo=include_demo)
         if include_demo and not scores:
-            self.load_demo_scores()
+            self.load_demo_scores(analysis_mode=analysis_mode)
             scores = storage.get_scores(include_demo=True)
         stocks = [
             Stock(score.stock_id, score.name, score.industry, score.market)
@@ -231,7 +258,7 @@ class ScreenerService:
             flows_by_stock[stock.stock_id] = storage.get_institutional_flows(stock.stock_id)
             margins_by_stock[stock.stock_id] = storage.get_margin_balances(stock.stock_id)
             news_by_stock[stock.stock_id] = storage.get_news(stock.stock_id)
-        return run_backtest(stocks, prices_by_stock, flows_by_stock, margins_by_stock, news_by_stock)
+        return run_backtest(stocks, prices_by_stock, flows_by_stock, margins_by_stock, news_by_stock, analysis_mode=analysis_mode)
 
     def remove_demo_data(self, clear_market_data: bool = True) -> int:
         demo_stock_ids = [item["stock_id"] for item in DEFAULT_WATCHLIST] if clear_market_data else []
@@ -300,6 +327,39 @@ class ScreenerService:
                 continue
             output.append(score)
         return output
+
+    def _rescore_for_mode(
+        self,
+        scores: list[ScoreResult],
+        storage: Storage,
+        analysis_mode: str,
+        include_demo: bool = False,
+    ) -> list[ScoreResult]:
+        rescored: list[ScoreResult] = []
+        for score in scores:
+            stock = storage.get_stock(score.stock_id)
+            prices = storage.get_prices(score.stock_id)
+            if not stock or not prices:
+                rescored.append(score)
+                continue
+            flows = storage.get_institutional_flows(score.stock_id)
+            margins = storage.get_margin_balances(score.stock_id)
+            news = storage.get_news(score.stock_id)
+            data_source = score.data_freshness.split(" / ")[0] if score.data_freshness else ("demo" if include_demo else "local")
+            rescored.append(
+                score_stock(
+                    stock,
+                    prices,
+                    flows,
+                    margins,
+                    news,
+                    run_date=score.run_date,
+                    data_source=data_source,
+                    analysis_mode=analysis_mode,
+                )
+            )
+        rescored.sort(key=lambda item: item.buy_score, reverse=True)
+        return rescored
 
     def _run_response(self, scores: list[ScoreResult], source: str) -> dict[str, Any]:
         return {

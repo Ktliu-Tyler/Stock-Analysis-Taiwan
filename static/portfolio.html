@@ -19,6 +19,26 @@
     </header>
 
     <section class="portfolioSummary" id="portfolioSummary"></section>
+    <section class="portfolioGroups" id="portfolioGroups" aria-label="持股分類"></section>
+
+    <section class="modeSwitch compactModeSwitch" aria-label="持股分類篩選">
+      <button type="button" class="modeButton active" data-horizon-filter="all">
+        <strong>全部</strong>
+        <span>所有紀錄</span>
+      </button>
+      <button type="button" class="modeButton" data-horizon-filter="短期">
+        <strong>短期</strong>
+        <span>短線觀察</span>
+      </button>
+      <button type="button" class="modeButton" data-horizon-filter="中期">
+        <strong>中期</strong>
+        <span>波段持股</span>
+      </button>
+      <button type="button" class="modeButton" data-horizon-filter="長期">
+        <strong>長期</strong>
+        <span>長線配置</span>
+      </button>
+    </section>
 
     <main class="portfolioLayout">
       <section class="aiControlPanel">
@@ -56,14 +76,15 @@
               <option value="想減碼">想減碼</option>
               <option value="套牢中">套牢中</option>
               <option value="獲利中">獲利中</option>
+              <option value="已賣出">已賣出</option>
             </select>
           </label>
           <label>
-            投資週期
+            持股分類
             <select id="horizonInput">
-              <option value="短線1-5日">短線1-5日</option>
-              <option value="波段2-8週">波段2-8週</option>
-              <option value="中長線3-12月">中長線3-12月</option>
+              <option value="短期">短期</option>
+              <option value="中期">中期</option>
+              <option value="長期">長期</option>
             </select>
           </label>
           <label>
@@ -97,7 +118,7 @@
                 <th>現價</th>
                 <th>市值</th>
                 <th>損益</th>
-                <th>狀態</th>
+                <th>分類/狀態</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -114,4 +135,3 @@
     <script src="/portfolio.js"></script>
   </body>
 </html>
-

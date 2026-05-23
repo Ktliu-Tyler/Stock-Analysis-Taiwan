@@ -19,6 +19,21 @@
       </div>
     </header>
 
+    <section class="modeSwitch stockModeSwitch" aria-label="分析模式">
+      <button type="button" class="modeButton active" data-stock-mode="short">
+        <strong>短線</strong>
+        <span>1-5 日</span>
+      </button>
+      <button type="button" class="modeButton" data-stock-mode="swing">
+        <strong>波段</strong>
+        <span>2-8 週</span>
+      </button>
+      <button type="button" class="modeButton" data-stock-mode="long">
+        <strong>長線</strong>
+        <span>3-12 月</span>
+      </button>
+    </section>
+
     <main class="stockWorkspace">
       <section class="chartPanel">
         <div class="panelHead chartHead">
@@ -31,6 +46,7 @@
               <option value="30">1M</option>
               <option value="90" selected>3M</option>
               <option value="180">6M</option>
+              <option value="240">1Y</option>
               <option value="all">全部</option>
             </select>
             <select id="chartTypeSelect" title="圖表型態">
@@ -86,6 +102,39 @@
               <div><span>目標區間</span><strong id="targetZone">-</strong></div>
             </div>
           </div>
+        </section>
+
+        <section class="listPanel">
+          <div class="panelHead">
+            <h2>快速買入觀察</h2>
+            <span id="quickBuyMeta">帶入目前模式</span>
+          </div>
+          <form id="quickBuyForm" class="aiForm compactForm">
+            <label>
+              買入/觀察價
+              <input id="quickBuyPrice" type="number" min="0" step="0.01" required />
+            </label>
+            <label>
+              股數
+              <input id="quickBuyShares" type="number" min="0" step="1" placeholder="例如 1000" required />
+            </label>
+            <label>
+              分類
+              <select id="quickBuyHorizon">
+                <option value="短期">短期</option>
+                <option value="中期">中期</option>
+                <option value="長期">長期</option>
+              </select>
+            </label>
+            <label>
+              狀態
+              <select id="quickBuyStatus">
+                <option value="準備買入">準備買入</option>
+                <option value="已持有">已持有</option>
+              </select>
+            </label>
+            <button id="quickBuyBtn" type="submit">加入持股觀察</button>
+          </form>
         </section>
 
         <section class="listPanel">

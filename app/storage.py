@@ -117,6 +117,10 @@ class Storage:
                     horizon TEXT NOT NULL,
                     risk_profile TEXT NOT NULL,
                     notes TEXT NOT NULL,
+                    sell_price REAL DEFAULT 0,
+                    sell_date TEXT DEFAULT '',
+                    sell_shares REAL DEFAULT 0,
+                    closed INTEGER DEFAULT 0,
                     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
                 );
@@ -126,6 +130,15 @@ class Storage:
                 CREATE INDEX IF NOT EXISTS idx_positions_stock_id ON positions(stock_id);
                 """
             )
+            self._ensure_column(connection, "positions", "sell_price", "REAL DEFAULT 0")
+            self._ensure_column(connection, "positions", "sell_date", "TEXT DEFAULT ''")
+            self._ensure_column(connection, "positions", "sell_shares", "REAL DEFAULT 0")
+            self._ensure_column(connection, "positions", "closed", "INTEGER DEFAULT 0")
+
+    def _ensure_column(self, connection: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+        existing = {row["name"] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()}
+        if column not in existing:
+            connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     def upsert_stocks(self, stocks: list[Stock]) -> None:
         with self.connect() as connection:
@@ -408,11 +421,13 @@ class Storage:
                 """
                 INSERT INTO positions (
                     stock_id, name, shares, average_cost, buy_date,
-                    position_status, horizon, risk_profile, notes
+                    position_status, horizon, risk_profile, notes,
+                    sell_price, sell_date, sell_shares, closed
                 )
                 VALUES (
                     :stock_id, :name, :shares, :average_cost, :buy_date,
-                    :position_status, :horizon, :risk_profile, :notes
+                    :position_status, :horizon, :risk_profile, :notes,
+                    :sell_price, :sell_date, :sell_shares, :closed
                 )
                 """,
                 position,
@@ -435,6 +450,10 @@ class Storage:
                     horizon = :horizon,
                     risk_profile = :risk_profile,
                     notes = :notes,
+                    sell_price = :sell_price,
+                    sell_date = :sell_date,
+                    sell_shares = :sell_shares,
+                    closed = :closed,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = :id
                 """,

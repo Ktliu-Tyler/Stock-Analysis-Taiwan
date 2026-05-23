@@ -13,6 +13,8 @@ const chartColors = {
 
 const stockState = {
   report: null,
+  stockId: "",
+  analysisMode: "short",
   range: "90",
   chartType: "candle",
   indicator: "rsi",
@@ -33,6 +35,7 @@ const stockElements = {
   title: document.querySelector("#stockPageTitle"),
   meta: document.querySelector("#stockPageMeta"),
   aiLink: document.querySelector("#stockAiLink"),
+  modeButtons: [...document.querySelectorAll("[data-stock-mode]")],
   chartStatus: document.querySelector("#chartStatus"),
   rangeSelect: document.querySelector("#rangeSelect"),
   chartTypeSelect: document.querySelector("#chartTypeSelect"),
@@ -55,6 +58,13 @@ const stockElements = {
   entryPrice: document.querySelector("#entryPrice"),
   stopPrice: document.querySelector("#stopPrice"),
   targetZone: document.querySelector("#targetZone"),
+  quickBuyMeta: document.querySelector("#quickBuyMeta"),
+  quickBuyForm: document.querySelector("#quickBuyForm"),
+  quickBuyPrice: document.querySelector("#quickBuyPrice"),
+  quickBuyShares: document.querySelector("#quickBuyShares"),
+  quickBuyHorizon: document.querySelector("#quickBuyHorizon"),
+  quickBuyStatus: document.querySelector("#quickBuyStatus"),
+  quickBuyBtn: document.querySelector("#quickBuyBtn"),
   buyReason: document.querySelector("#stockBuyReason"),
   avoidReason: document.querySelector("#stockAvoidReason"),
   breakdown: document.querySelector("#stockIndicatorBreakdown"),
@@ -77,6 +87,9 @@ async function fetchJson(url, options = {}) {
 async function initStockPage() {
   const params = new URLSearchParams(window.location.search);
   const stockId = params.get("id") || params.get("stock_id");
+  stockState.stockId = stockId || "";
+  stockState.analysisMode = normalizeMode(params.get("mode") || params.get("analysis_mode") || "short");
+  updateModeButtons();
   if (!stockId) {
     stockElements.meta.textContent = "缺少股票代號";
     stockElements.chartStatus.textContent = "無資料";
@@ -85,7 +98,7 @@ async function initStockPage() {
   }
   showLoading(`載入 ${stockId} 完整分析`);
   try {
-    const report = await fetchJson(`/api/stocks/${encodeURIComponent(stockId)}/report`);
+    const report = await fetchJson(`/api/stocks/${encodeURIComponent(stockId)}/report?mode=${encodeURIComponent(stockState.analysisMode)}`);
     if (report.error) {
       throw new Error(report.error);
     }
@@ -106,14 +119,38 @@ function renderStockPage() {
   const details = score.details || {};
   const prices = report.prices || [];
   const latest = prices[prices.length - 1] || {};
+  const modeLabel = details.analysis_mode_label || modeLabelText(stockState.analysisMode);
   stockElements.title.textContent = `${score.stock_id || ""} ${score.name || ""}`.trim() || "個股完整分析";
-  stockElements.meta.textContent = `${score.industry || "-"} · ${score.market || "-"} · 最新資料 ${latest.date || score.data_freshness || "-"}`;
-  stockElements.aiLink.href = `/ai.html?stock_id=${encodeURIComponent(score.stock_id || "")}`;
+  stockElements.meta.textContent = `${modeLabel}模式 · ${score.industry || "-"} · ${score.market || "-"} · 最新資料 ${latest.date || score.data_freshness || "-"}`;
+  stockElements.aiLink.href = `/ai.html?stock_id=${encodeURIComponent(score.stock_id || "")}&mode=${encodeURIComponent(stockState.analysisMode)}`;
   stockElements.chartStatus.textContent = `${prices.length} 筆價格資料`;
   renderSidePanels();
+  prepareQuickBuy();
   renderBreakdown(details.indicator_breakdown || {});
   renderNews(report.news || []);
   renderCharts();
+}
+
+async function reloadForMode(mode) {
+  stockState.analysisMode = normalizeMode(mode);
+  stockState.hoverIndex = null;
+  stockState.selectedIndex = null;
+  stockState.pendingTrend = null;
+  updateModeButtons();
+  const url = new URL(window.location.href);
+  url.searchParams.set("mode", stockState.analysisMode);
+  window.history.replaceState({}, "", url);
+  showLoading(`切換為${modeLabelText(stockState.analysisMode)}模式`);
+  try {
+    const report = await fetchJson(`/api/stocks/${encodeURIComponent(stockState.stockId)}/report?mode=${encodeURIComponent(stockState.analysisMode)}`);
+    if (report.error) throw new Error(report.error);
+    stockState.report = report;
+    renderStockPage();
+  } catch (error) {
+    stockElements.meta.textContent = `切換失敗：${error.message}`;
+  } finally {
+    hideLoading();
+  }
 }
 
 function visiblePrices() {
@@ -543,6 +580,47 @@ function renderSidePanels() {
     .join("");
 }
 
+function prepareQuickBuy() {
+  const score = stockState.report.score || {};
+  const details = score.details || {};
+  stockElements.quickBuyPrice.value = formatPrice(score.entry_watch_price || details.latest_price || 0);
+  stockElements.quickBuyHorizon.value = details.portfolio_horizon || portfolioHorizonForMode(stockState.analysisMode);
+  stockElements.quickBuyMeta.textContent = `${modeLabelText(stockState.analysisMode)} / ${stockElements.quickBuyHorizon.value}`;
+}
+
+async function quickAddPosition(event) {
+  event.preventDefault();
+  const score = stockState.report?.score || {};
+  if (!score.stock_id) return;
+  stockElements.quickBuyBtn.disabled = true;
+  stockElements.quickBuyBtn.textContent = "加入中";
+  showLoading("加入持股觀察");
+  try {
+    await fetchJson("/api/portfolio", {
+      method: "POST",
+      body: JSON.stringify({
+        stock_id: score.stock_id,
+        name: score.name,
+        shares: stockElements.quickBuyShares.value,
+        average_cost: stockElements.quickBuyPrice.value,
+        buy_date: new Date().toISOString().slice(0, 10),
+        position_status: stockElements.quickBuyStatus.value,
+        horizon: stockElements.quickBuyHorizon.value,
+        risk_profile: "中等",
+        notes: `${modeLabelText(stockState.analysisMode)}模式從個股頁加入。觀察價 ${formatPrice(score.entry_watch_price)}，停損 ${formatPrice(score.stop_loss_price)}。`,
+      }),
+    });
+    stockElements.quickBuyMeta.textContent = "已加入持股觀察";
+    stockElements.quickBuyShares.value = "";
+  } catch (error) {
+    stockElements.quickBuyMeta.textContent = `加入失敗：${error.message}`;
+  } finally {
+    stockElements.quickBuyBtn.disabled = false;
+    stockElements.quickBuyBtn.textContent = "加入持股觀察";
+    hideLoading();
+  }
+}
+
 function renderBreakdown(breakdown) {
   const groups = ["technical", "chip", "sentiment", "risk"];
   stockElements.breakdownMeta.textContent = groups.filter((key) => breakdown[key]).length ? "已整理" : "無資料";
@@ -683,6 +761,28 @@ function toggleActive(button, active) {
   button.classList.toggle("activeTool", active);
 }
 
+function updateModeButtons() {
+  stockElements.modeButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.stockMode === stockState.analysisMode);
+  });
+}
+
+function normalizeMode(mode) {
+  return ["short", "swing", "long"].includes(mode) ? mode : "short";
+}
+
+function modeLabelText(mode) {
+  if (mode === "swing") return "波段";
+  if (mode === "long") return "長線";
+  return "短線";
+}
+
+function portfolioHorizonForMode(mode) {
+  if (mode === "swing") return "中期";
+  if (mode === "long") return "長期";
+  return "短期";
+}
+
 function directionClassName(value) {
   if (value === "看多" || value === "偏多") return "bull";
   if (value === "偏空" || value === "看空") return "bear";
@@ -792,6 +892,10 @@ stockElements.clearDrawingsBtn.addEventListener("click", () => {
   stockState.pendingTrend = null;
   renderCharts();
 });
+stockElements.modeButtons.forEach((button) => {
+  button.addEventListener("click", () => reloadForMode(button.dataset.stockMode));
+});
+stockElements.quickBuyForm.addEventListener("submit", quickAddPosition);
 stockElements.chart.addEventListener("mousemove", onChartMove);
 stockElements.chart.addEventListener("mouseleave", onChartLeave);
 stockElements.chart.addEventListener("click", onChartClick);

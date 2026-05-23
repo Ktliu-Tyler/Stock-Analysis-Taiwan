@@ -8,6 +8,7 @@ const aiElements = {
   meta: document.querySelector("#aiMeta"),
   status: document.querySelector("#ollamaStatus"),
   stockSelect: document.querySelector("#stockSelect"),
+  analysisModeSelect: document.querySelector("#analysisModeSelect"),
   modelSelect: document.querySelector("#modelSelect"),
   modelHint: document.querySelector("#modelHint"),
   thinkingToggle: document.querySelector("#thinkingToggle"),
@@ -43,6 +44,7 @@ async function initAIPage() {
   await loadAIStatus();
   await loadPositions();
   await loadStocks();
+  applyModeFromUrl();
   applyStockFromUrl();
   applyPositionFromUrl();
   hideLoading();
@@ -135,6 +137,14 @@ function applyStockFromUrl() {
   aiElements.stockSelect.value = stockId;
 }
 
+function applyModeFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const mode = params.get("mode") || params.get("analysis_mode");
+  if (["short", "swing", "long"].includes(mode)) {
+    aiElements.analysisModeSelect.value = mode;
+  }
+}
+
 function applySavedPosition(positionId) {
   const position = aiState.positions.find((item) => String(item.id) === String(positionId));
   if (!position) return;
@@ -156,8 +166,9 @@ async function analyzeStock() {
   prepareStreamingOutput(aiElements.stockOutput, "模型正在閱讀技術面、籌碼面、情緒面與風控資料...");
   try {
     await streamAIAnalysis("/api/ai/analyze-stock-stream", {
-      stock_id: stockId,
-      model: aiElements.modelSelect.value,
+        stock_id: stockId,
+        analysis_mode: aiElements.analysisModeSelect.value,
+        model: aiElements.modelSelect.value,
       question: aiElements.stockQuestion.value,
       think: aiElements.thinkingToggle.checked,
     }, aiElements.stockOutput, aiElements.stockOutputMeta);
@@ -180,8 +191,9 @@ async function analyzePosition() {
   prepareStreamingOutput(aiElements.positionOutput, "模型正在整合持股成本、系統分數與風控條件...");
   try {
     await streamAIAnalysis("/api/ai/analyze-position-stream", {
-      stock_id: stockId,
-      model: aiElements.modelSelect.value,
+        stock_id: stockId,
+        analysis_mode: aiElements.analysisModeSelect.value,
+        model: aiElements.modelSelect.value,
       position_id: aiElements.savedPositionSelect.value,
       shares: aiElements.sharesInput.value,
       average_cost: aiElements.averageCostInput.value,

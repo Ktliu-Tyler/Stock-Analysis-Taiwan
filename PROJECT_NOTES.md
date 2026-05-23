@@ -7,8 +7,9 @@
 目前專案主流程可以正常運作：
 
 - 首頁篩選儀表板可載入正式掃描資料。
+- 篩選、個股、AI 與回測流程支援短線、波段、長線模式。
 - 個股完整分析頁可顯示互動 K 線、價量、技術指標與趨勢線工具。
-- 持股紀錄可新增、刪除並計算未實現損益。
+- 持股紀錄可新增、賣出、刪除並計算未實現與已實現損益。
 - AI 分析頁可連線到本機 Ollama 狀態 API，並支援模型選擇與 SSE 串流 thinking 顯示。
 - 公開網站流程已移除示範資料模式。
 - `/api/...` 未知路由會回 JSON 404，不再 fallback 成首頁。
@@ -22,10 +23,11 @@ python -m compileall app
 node --check static\app.js
 node --check static\ai.js
 node --check static\portfolio.js
+node --check static\stock.js
 Invoke-RestMethod http://127.0.0.1:8000/api/health
 ```
 
-目前測試結果：12 個單元測試通過。
+目前測試結果：13 個單元測試通過。
 
 ## 程式流程整理
 
@@ -46,14 +48,16 @@ Invoke-RestMethod http://127.0.0.1:8000/api/health
 5. 寫入 SQLite。
 6. `score_universe()` 計算分數。
 7. 前端重新讀取 `/api/screener/today`。
+8. 切換短線、波段、長線時，後端用現有市場資料即時重算模式分數，不需要重新抓資料。
 
 ### 單檔分析流程
 
 1. 使用者點選股票。
 2. 前端呼叫 `/api/stocks/{stock_id}/report`。
 3. 後端回傳分數、價格、籌碼、融資融券、新聞與 signals。
-4. 前端畫摘要 K 線、法人柱狀圖、指標拆解與風控資訊。
-5. 使用者可從摘要面板開啟 `/stock.html?id={stock_id}` 查看完整互動圖表。
+4. 後端會依 `mode=short|swing|long` 回傳對應週期的分數與價位規劃。
+5. 前端畫摘要 K 線、法人柱狀圖、指標拆解與風控資訊。
+6. 使用者可從摘要面板開啟 `/stock.html?id={stock_id}` 查看完整互動圖表。
 
 ### 個股完整圖表流程
 
@@ -61,23 +65,28 @@ Invoke-RestMethod http://127.0.0.1:8000/api/health
 2. `stock.html` 讀取 query string 中的股票代號。
 3. `stock.js` 呼叫 `/api/stocks/{stock_id}/report`。
 4. 前端用 canvas 繪製 K 線、收盤線、成交量、MA、RSI、MACD、法人買賣超。
-5. 使用者可用十字游標檢視資料、點選固定資料點，或用趨勢線工具做簡單技術分析。
+5. 使用者可切換短線、波段、長線模式重算該股結論。
+6. 使用者可用十字游標檢視資料、點選固定資料點，或用趨勢線工具做簡單技術分析。
+7. 使用者可輸入買入/觀察價與股數，快速加入持股觀察。
 
 ### 持股流程
 
-1. 使用者在 `/portfolio.html` 新增持股。
+1. 使用者在 `/portfolio.html` 新增持股，或從個股頁快速加入。
 2. `PortfolioService` 寫入 `positions` table。
 3. 系統用正式掃描資料中的最新價格估算市值與損益。
-4. 若沒有正式價格，現價與市值會暫時為 0。
+4. 持股依短期、中期、長期分類顯示。
+5. 使用者可將持股標記為賣出，保存賣出價、賣出股數、賣出日期。
+6. 若沒有正式價格，現價與市值會暫時為 0。
 
 ### AI 分析流程
 
 1. AI 頁讀取 `/api/ai/status` 確認 Ollama 是否可用。
 2. 單檔分析會讀取正式股票 report，組成 prompt。
 3. 持股分析可附加保存的持股紀錄。
-4. 一般 API 會用非串流 `POST /api/generate` 回傳完整分析。
-5. 前端 AI 頁使用 `/api/ai/analyze-*-stream`，由後端轉成 SSE 事件。
-6. 若 Ollama 回傳 `thinking` 欄位，前端會即時顯示；完成後自動摺疊，答案仍整理成報告卡片。
+4. AI 頁會帶入短線、波段或長線模式，讓 report 與 prompt 對應同一週期。
+5. 一般 API 會用非串流 `POST /api/generate` 回傳完整分析。
+6. 前端 AI 頁使用 `/api/ai/analyze-*-stream`，由後端轉成 SSE 事件。
+7. 若 Ollama 回傳 `thinking` 欄位，前端會即時顯示；完成後自動摺疊，答案仍整理成報告卡片。
 
 ## 已修正或遇過的問題
 
@@ -133,6 +142,16 @@ Get-CimInstance Win32_Process -Filter "name = 'python.exe'" |
 
 必要時關掉舊行程再重開。
 
+### 分析模式切換
+
+三種模式目前共用同一批市場資料，但用不同權重與風控假設重算：
+
+- 短線：1-5 日，偏重短均線、量價、法人短買。
+- 波段：2-8 週，增加 MA20/MA60 與法人延續性的比重。
+- 長線：3-12 個月，提高風控、MA60 與情緒/題材持續性的比重。
+
+模式切換不會重新抓資料；若資料本身太短，長線模式仍會受限於可用日線長度。
+
 ### 瀏覽器快取
 
 CSS 或 JS 更新後，如果畫面仍像舊版，先按：
@@ -168,6 +187,7 @@ TWSE / FinMind 免費資料可能有：
 - 篩選模型是規則式評分，不是保證獲利模型。
 - AI 分析依賴 Ollama 是否已啟動、模型是否足夠快。
 - 持股現價依賴正式掃描資料；沒有被掃描過的股票可能現價為 0。
+- 已賣出紀錄目前記錄最後一次賣出價與賣出股數，不是完整逐筆交易明細系統。
 - SQLite 適合本機單人使用，不適合多人高併發。
 - 盤中即時能力受免費資料源限制，目前較適合作盤後或低頻更新。
 - 個股完整圖表是本機 canvas 繪圖，提供基本技術分析工具；尚未做到專業看盤軟體的縮放拖曳、區間統計與多圖層物件管理。
@@ -182,6 +202,7 @@ python -m compileall app
 node --check static\app.js
 node --check static\ai.js
 node --check static\portfolio.js
+node --check static\stock.js
 ```
 
 正式使用前建議確認：

@@ -44,6 +44,109 @@ NEGATIVE_TERMS = [
 ]
 
 
+ANALYSIS_MODE_CONFIGS: dict[str, dict[str, Any]] = {
+    "short": {
+        "label": "短線",
+        "portfolio_label": "短期",
+        "description": "1-5 日，重視短均線、量價、法人短買與停損效率。",
+        "weights": {"technical": 0.42, "chip": 0.28, "sentiment": 0.18, "risk": 0.12},
+        "entry_note": "短線候選",
+        "stop_ma": "ma10",
+        "stop_floor": 0.045,
+        "target": (1.03, 1.08),
+        "min_buy_score": 72,
+        "min_watch_score": 60,
+        "min_risk_score": 52,
+        "liquidity_min": 600_000,
+        "liquidity_strong": 2_000_000,
+        "atr_ok": 0.035,
+        "atr_watch": 0.07,
+        "overheat_metric": "change_5d",
+        "overheat_label": "5日漲幅",
+        "overheat_ok": 12,
+        "overheat_watch": 22,
+        "support_label": "10日線支撐",
+    },
+    "swing": {
+        "label": "波段",
+        "portfolio_label": "中期",
+        "description": "2-8 週，重視 MA20/MA60、法人延續性、整理突破與波動容忍度。",
+        "weights": {"technical": 0.36, "chip": 0.30, "sentiment": 0.14, "risk": 0.20},
+        "entry_note": "波段觀察名單",
+        "stop_ma": "ma20",
+        "stop_floor": 0.075,
+        "target": (1.08, 1.18),
+        "min_buy_score": 70,
+        "min_watch_score": 58,
+        "min_risk_score": 50,
+        "liquidity_min": 400_000,
+        "liquidity_strong": 1_200_000,
+        "atr_ok": 0.055,
+        "atr_watch": 0.105,
+        "overheat_metric": "change_20d",
+        "overheat_label": "20日漲幅",
+        "overheat_ok": 22,
+        "overheat_watch": 42,
+        "support_label": "20日線支撐",
+    },
+    "long": {
+        "label": "長線",
+        "portfolio_label": "長期",
+        "description": "3-12 個月，重視 MA60 趨勢、波動可承受度、題材持續性與風險邊際。",
+        "weights": {"technical": 0.30, "chip": 0.18, "sentiment": 0.22, "risk": 0.30},
+        "entry_note": "長線觀察名單",
+        "stop_ma": "ma60",
+        "stop_floor": 0.12,
+        "target": (1.15, 1.35),
+        "min_buy_score": 68,
+        "min_watch_score": 56,
+        "min_risk_score": 48,
+        "liquidity_min": 250_000,
+        "liquidity_strong": 800_000,
+        "atr_ok": 0.075,
+        "atr_watch": 0.14,
+        "overheat_metric": "change_20d",
+        "overheat_label": "20日漲幅",
+        "overheat_ok": 35,
+        "overheat_watch": 65,
+        "support_label": "60日線支撐",
+    },
+}
+
+
+def normalize_analysis_mode(value: str | None) -> str:
+    key = str(value or "short").strip().lower()
+    aliases = {
+        "day": "short",
+        "intraday": "short",
+        "短線": "short",
+        "短期": "short",
+        "mid": "swing",
+        "middle": "swing",
+        "medium": "swing",
+        "波段": "swing",
+        "中期": "swing",
+        "longterm": "long",
+        "long-term": "long",
+        "長線": "long",
+        "長期": "long",
+    }
+    key = aliases.get(key, key)
+    return key if key in ANALYSIS_MODE_CONFIGS else "short"
+
+
+def analysis_mode_options() -> list[dict[str, str]]:
+    return [
+        {
+            "key": key,
+            "label": str(config["label"]),
+            "portfolio_label": str(config["portfolio_label"]),
+            "description": str(config["description"]),
+        }
+        for key, config in ANALYSIS_MODE_CONFIGS.items()
+    ]
+
+
 def clamp(value: float, lower: float = 0.0, upper: float = 100.0) -> float:
     return max(lower, min(upper, value))
 
@@ -118,7 +221,10 @@ def score_stock(
     news: list[NewsItem] | None = None,
     run_date: str | None = None,
     data_source: str = "local",
+    analysis_mode: str = "short",
 ) -> ScoreResult:
+    mode = normalize_analysis_mode(analysis_mode)
+    mode_config = ANALYSIS_MODE_CONFIGS[mode]
     flows = sorted(flows or [], key=lambda item: item.date)
     margins = sorted(margins or [], key=lambda item: item.date)
     news = news or []
@@ -147,7 +253,11 @@ def score_stock(
     change_20d = pct_change(closes, 20) or 0.0
     previous_20_high = max(highs[-21:-1]) if len(highs) >= 21 else rolling_max(highs, min(10, len(highs)))
     previous_20_low = min(lows[-21:-1]) if len(lows) >= 21 else rolling_min(lows, min(10, len(lows)))
+    previous_60_high = max(highs[-61:-1]) if len(highs) >= 61 else rolling_max(highs, min(30, len(highs)))
+    previous_60_low = min(lows[-61:-1]) if len(lows) >= 61 else rolling_min(lows, min(30, len(lows)))
     recent_low = rolling_min(lows, min(10, len(lows))) or latest.close * 0.95
+    medium_low = rolling_min(lows, min(20, len(lows))) or recent_low
+    long_low = rolling_min(lows, min(60, len(lows))) or medium_low
     vol20 = volatility(closes, 20)
 
     technical_indicators: list[dict[str, Any]] = []
@@ -266,6 +376,44 @@ def score_stock(
         kd_text = "KD資料不足"
     technical_indicators.append(_indicator("kd", "KD", f"K {_round(k_value)} / D {_round(d_value)}", kd_delta, kd_text))
 
+    if mode in {"swing", "long"}:
+        medium_delta = 0.0
+        if ma20 and ma60:
+            if latest.close > ma20 > ma60:
+                medium_delta = 18 if mode == "swing" else 14
+                buy_reasons.append("中期均線維持多頭")
+                medium_text = "收盤價站上MA20且MA20高於MA60，波段趨勢偏多"
+            elif latest.close > ma20:
+                medium_delta = 8
+                medium_text = "價格守住MA20，但MA60趨勢仍待確認"
+            elif latest.close < ma60:
+                medium_delta = -14
+                avoid_reasons.append("價格跌破中長期均線")
+                medium_text = "收盤價跌破MA60，中期趨勢偏弱"
+            else:
+                medium_delta = -4
+                medium_text = "價格介於MA20與MA60之間，趨勢未明"
+        else:
+            medium_text = "MA20/MA60資料不足"
+        technical_indicators.append(_indicator("medium_trend", "MA20/MA60趨勢", _round(ma60), medium_delta, medium_text, "MA60"))
+
+        range_high = previous_60_high if mode == "long" else previous_20_high
+        range_low = previous_60_low if mode == "long" else previous_20_low
+        range_label = "60日區間" if mode == "long" else "20日區間"
+        range_delta = 0.0
+        if range_high and latest.close >= range_high * 0.97:
+            range_delta = 10 if mode == "long" else 14
+            buy_reasons.append(f"接近{range_label}上緣")
+            range_text = f"價格接近{range_label}高點，趨勢延續性較佳"
+        elif range_low and latest.close <= range_low * 1.04:
+            range_delta = -10
+            avoid_reasons.append(f"接近{range_label}下緣")
+            range_text = f"價格接近{range_label}低點，需確認支撐"
+        else:
+            range_delta = 2
+            range_text = f"價格位於{range_label}中段"
+        technical_indicators.append(_indicator("mode_range_position", range_label, _round(latest.close), range_delta, range_text))
+
     technical_score = clamp(50 + sum(item["impact"] for item in technical_indicators))
 
     latest_flows = flows[-5:]
@@ -346,45 +494,56 @@ def score_stock(
     elif sentiment_score <= 38:
         avoid_reasons.append("近期新聞或公告偏保守")
 
-    liquidity_delta = 14 if latest.volume >= 2_000_000 else 8 if latest.volume >= 600_000 else -12
+    liquidity_delta = 14 if latest.volume >= mode_config["liquidity_strong"] else 8 if latest.volume >= mode_config["liquidity_min"] else -12
     if liquidity_delta < 0:
         avoid_reasons.append("成交量偏低")
-    risk_indicators.append(_indicator("liquidity", "流動性", round(latest.volume), liquidity_delta, "成交量越高，短線進出彈性越好", "股"))
+    risk_indicators.append(_indicator("liquidity", "流動性", round(latest.volume), liquidity_delta, f"成交量越高，{mode_config['label']}進出與風控彈性越好", "股"))
 
-    atr_delta = 14 if atr_ratio <= 0.035 else 6 if atr_ratio <= 0.07 else -12
+    atr_delta = 14 if atr_ratio <= mode_config["atr_ok"] else 6 if atr_ratio <= mode_config["atr_watch"] else -12
     if atr_delta < 0:
-        avoid_reasons.append("短線波動偏大")
+        avoid_reasons.append(f"{mode_config['label']}波動偏大")
     risk_indicators.append(_indicator("atr_ratio", "ATR波動", _round(atr_ratio * 100), atr_delta, "ATR占收盤價比重，用來衡量停損距離", "%"))
 
-    overheat_delta = 12 if change_5d <= 12 else 2 if change_5d <= 22 else -14
+    overheat_value = change_5d if mode_config["overheat_metric"] == "change_5d" else change_20d
+    overheat_delta = 12 if overheat_value <= mode_config["overheat_ok"] else 2 if overheat_value <= mode_config["overheat_watch"] else -14
     if overheat_delta < 0:
-        avoid_reasons.append("短線漲幅過熱")
+        avoid_reasons.append(f"{mode_config['label']}漲幅過熱")
     elif overheat_delta < 5:
-        avoid_reasons.append("近5日漲幅偏高，追價風險上升")
-    risk_indicators.append(_indicator("overheat_5d", "5日漲幅", _round(change_5d), overheat_delta, "漲幅過高會降低風控分", "%"))
+        avoid_reasons.append(f"近{mode_config['overheat_label']}偏高，追價風險上升")
+    risk_indicators.append(_indicator("mode_overheat", str(mode_config["overheat_label"]), _round(overheat_value), overheat_delta, "漲幅過高會降低風控分", "%"))
 
-    support_delta = 8 if ma10 and latest.close >= ma10 else -8
-    risk_indicators.append(_indicator("support_ma10", "10日線支撐", _round(ma10), support_delta, "價格是否守住短線支撐", "MA10"))
+    support_value = {"ma10": ma10, "ma20": ma20, "ma60": ma60}.get(str(mode_config["stop_ma"]), ma10)
+    support_delta = 8 if support_value and latest.close >= support_value else -8
+    risk_indicators.append(_indicator("mode_support", str(mode_config["support_label"]), _round(support_value), support_delta, f"價格是否守住{mode_config['label']}支撐", str(mode_config["stop_ma"]).upper()))
 
     risk_score = clamp(50 + sum(item["impact"] for item in risk_indicators))
 
-    buy_score = clamp(technical_score * 0.42 + chip_score * 0.28 + sentiment_score * 0.18 + risk_score * 0.12)
+    factor_weights = dict(mode_config["weights"])
+    buy_score = clamp(
+        technical_score * factor_weights["technical"]
+        + chip_score * factor_weights["chip"]
+        + sentiment_score * factor_weights["sentiment"]
+        + risk_score * factor_weights["risk"]
+    )
     direction = infer_direction(technical_score, chip_score, sentiment_score, risk_score, buy_score)
-    decision = infer_decision(buy_score, risk_score, direction)
-    investment_advice = investment_advice_text(decision, direction, buy_score, risk_score)
+    decision = infer_decision(buy_score, risk_score, direction, mode_config)
+    investment_advice = investment_advice_text(decision, direction, buy_score, risk_score, mode_config)
 
+    stop_reference = {"ma10": ma10, "ma20": ma20, "ma60": ma60}.get(str(mode_config["stop_ma"]))
+    mode_low = recent_low if mode == "short" else medium_low if mode == "swing" else long_low
     stop_anchor = min(
         value
         for value in [
-            ma10 or latest.close * 0.95,
-            recent_low,
-            latest.close * (1 - max(0.045, atr_ratio * 1.4)),
+            stop_reference or latest.close * (1 - float(mode_config["stop_floor"])),
+            mode_low,
+            latest.close * (1 - max(float(mode_config["stop_floor"]), atr_ratio * 1.4)),
         ]
         if value
     )
     stop_loss_price = round(stop_anchor * 0.99, 2)
     entry_watch_price = round(latest.close, 2)
-    target_zone = f"{latest.close * 1.03:.2f} - {latest.close * 1.08:.2f}"
+    target_low, target_high = mode_config["target"]
+    target_zone = f"{latest.close * target_low:.2f} - {latest.close * target_high:.2f}"
 
     if not buy_reasons:
         buy_reasons.append("目前訊號未形成明確優勢")
@@ -425,15 +584,12 @@ def score_stock(
     }
 
     local_model = local_model_analysis(indicator_breakdown, buy_score, risk_score)
-    factor_weights = {
-        "technical": 0.42,
-        "chip": 0.28,
-        "sentiment": 0.18,
-        "risk": 0.12,
-    }
-
     details = {
-        "analysis_version": 2,
+        "analysis_version": 3,
+        "analysis_mode": mode,
+        "analysis_mode_label": mode_config["label"],
+        "analysis_mode_description": mode_config["description"],
+        "portfolio_horizon": mode_config["portfolio_label"],
         "latest_price": latest.close,
         "latest_volume": latest.volume,
         "ma5": ma5,
@@ -451,6 +607,8 @@ def score_stock(
         "volatility20": vol20,
         "previous_20_high": previous_20_high,
         "previous_20_low": previous_20_low,
+        "previous_60_high": previous_60_high,
+        "previous_60_low": previous_60_low,
         "latest_flow": latest_flow.__dict__ if latest_flow else None,
         "latest_margin": latest_margin.__dict__ if latest_margin else None,
         "news": [item.__dict__ for item in news[:8]],
@@ -542,24 +700,27 @@ def infer_direction(technical_score: float, chip_score: float, sentiment_score: 
     return "看空"
 
 
-def infer_decision(buy_score: float, risk_score: float, direction: str) -> str:
-    if buy_score >= 72 and risk_score >= 52 and direction in {"看多", "偏多"}:
+def infer_decision(buy_score: float, risk_score: float, direction: str, mode_config: dict[str, Any] | None = None) -> str:
+    mode_config = mode_config or ANALYSIS_MODE_CONFIGS["short"]
+    if buy_score >= float(mode_config["min_buy_score"]) and risk_score >= float(mode_config["min_risk_score"]) and direction in {"看多", "偏多"}:
         return "適合買入"
-    if buy_score >= 60 and direction not in {"看空", "偏空"}:
+    if buy_score >= float(mode_config["min_watch_score"]) and direction not in {"看空", "偏空"}:
         return "觀察"
-    if buy_score >= 56 and risk_score >= 55:
+    if buy_score >= float(mode_config["min_watch_score"]) - 4 and risk_score >= float(mode_config["min_risk_score"]) + 3:
         return "等待拉回"
     return "避開"
 
 
-def investment_advice_text(decision: str, direction: str, buy_score: float, risk_score: float) -> str:
+def investment_advice_text(decision: str, direction: str, buy_score: float, risk_score: float, mode_config: dict[str, Any] | None = None) -> str:
+    mode_config = mode_config or ANALYSIS_MODE_CONFIGS["short"]
+    mode_label = str(mode_config["label"])
     if decision == "適合買入":
-        return f"{direction}，可列入短線候選。建議只在守住觀察價附近且量能不失真時分批，跌破停損價退出。"
+        return f"{direction}，可列入{mode_config['entry_note']}。建議只在守住觀察價附近且量能不失真時分批，跌破停損價退出。"
     if decision == "觀察":
-        return f"{direction}，訊號尚可但未達強勢買點。等待技術或籌碼再確認，不宜追高。"
+        return f"{direction}，{mode_label}訊號尚可但未達強勢買點。等待技術或籌碼再確認，不宜追高。"
     if decision == "等待拉回":
-        return f"{direction}但分數只有{buy_score:.1f}，風控分{risk_score:.1f}。等回測短均線或量縮整理後再評估。"
-    return f"{direction}，目前多方優勢不足。若技術、籌碼或情緒未改善，先避開。"
+        return f"{direction}但分數只有{buy_score:.1f}，風控分{risk_score:.1f}。等回測{mode_label}支撐或量縮整理後再評估。"
+    return f"{direction}，目前{mode_label}多方優勢不足。若技術、籌碼或情緒未改善，先避開。"
 
 
 def summarize_group(indicators: list[dict[str, Any]]) -> str:
@@ -630,4 +791,3 @@ def build_filter_flags(indicator_breakdown: dict[str, Any], local_model: dict[st
         "local_model_label": local_model["label"],
         "local_model_confidence": local_model["confidence"],
     }
-

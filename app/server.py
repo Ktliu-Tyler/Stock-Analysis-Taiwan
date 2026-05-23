@@ -45,14 +45,14 @@ class StockScreenerHandler(BaseHTTPRequestHandler):
             return
         if path.startswith("/api/stocks/") and path.endswith("/report"):
             stock_id = unquote(path.split("/")[3])
-            self._json(service.stock_report(stock_id, include_demo=False))
+            self._json(service.stock_report(stock_id, include_demo=False, analysis_mode=query.get("mode") or query.get("analysis_mode") or "short"))
             return
         if path.startswith("/api/stocks/") and path.endswith("/signals"):
             stock_id = unquote(path.split("/")[3])
-            self._json(service.stock_signals(stock_id, include_demo=False))
+            self._json(service.stock_signals(stock_id, include_demo=False, analysis_mode=query.get("mode") or query.get("analysis_mode") or "short"))
             return
         if path == "/api/backtest":
-            self._json(service.backtest(include_demo=False))
+            self._json(service.backtest(include_demo=False, analysis_mode=query.get("mode") or query.get("analysis_mode") or "short"))
             return
         if path.startswith("/api/"):
             self._json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
@@ -64,7 +64,7 @@ class StockScreenerHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/screener/run":
             body = self._read_json()
             mode = str(body.get("mode", "after_hours"))
-            self._json(service.run(use_demo=False, mode=mode))
+            self._json(service.run(use_demo=False, mode=mode, analysis_mode=str(body.get("analysis_mode") or "short")))
             return
         if parsed.path == "/api/ai/analyze-stock":
             body = self._read_json()
@@ -99,6 +99,15 @@ class StockScreenerHandler(BaseHTTPRequestHandler):
                 self._json({"error": "invalid_position_id"}, HTTPStatus.BAD_REQUEST)
                 return
             self._json(portfolio_service.delete_position(position_id))
+            return
+        if parsed.path.startswith("/api/portfolio/") and parsed.path.endswith("/sell"):
+            try:
+                position_id = int(parsed.path.split("/")[3])
+                self._json(portfolio_service.sell_position(position_id, self._read_json()))
+            except ValueError as exc:
+                self._json({"error": str(exc)}, HTTPStatus.BAD_REQUEST)
+            except IndexError:
+                self._json({"error": "invalid_position_id"}, HTTPStatus.BAD_REQUEST)
             return
         if parsed.path.startswith("/api/portfolio/"):
             try:

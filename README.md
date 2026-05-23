@@ -11,6 +11,7 @@
 - 網站操作只使用正式資料，不提供示範資料模式。
 - 台股顏色習慣已統一：漲、偏多、獲利用紅色；跌、偏空、虧損用綠色。
 - 前端已加入暗色系介面、載入動畫、skeleton loading 與 AI 報告式排版。
+- 篩選、個股、AI 與持股流程支援短線、波段、長線三種分析模式。
 
 ## 快速啟動
 
@@ -39,10 +40,11 @@ http://127.0.0.1:8000/
 1. 啟動網站。
 2. 打開首頁。
 3. 點擊 `更新資料`，讓系統抓取正式市場資料並重新評分。
-4. 在候選清單中點選股票查看摘要分析。
-5. 點擊 `完整圖表` 開啟獨立個股分析頁。
-6. 到持股頁加入自己的股票、股數與成本。
-7. 到 AI 頁選股票或帶入持股，讓 Ollama 產生分析。
+4. 在首頁切換 `短線`、`波段`、`長線` 模式，查看不同週期的候選名單。
+5. 在候選清單中點選股票查看摘要分析。
+6. 點擊 `完整圖表` 開啟獨立個股分析頁，也可在該頁快速加入持股觀察。
+7. 到持股頁加入自己的股票、股數與成本，並依短期、中期、長期分類查看。
+8. 到 AI 頁選股票或帶入持股，讓 Ollama 產生分析。
 
 若資料來源暫時抓不到資料，系統不會自動載入示範資料；畫面會保留目前正式資料或顯示更新失敗訊息。
 
@@ -52,6 +54,7 @@ http://127.0.0.1:8000/
 
 首頁直接顯示候選股票清單，包含：
 
+- 短線、波段、長線三種選股模式
 - 股票代號、名稱、產業
 - 多空方向
 - 投資建議
@@ -62,7 +65,13 @@ http://127.0.0.1:8000/
 - 指標影響拆解
 - 本地規則模型偏多、中性、偏空機率
 - 近期新聞與公告摘要
-- 1、3、5 日策略回測
+- 依模式切換的策略回測
+
+三種模式重點：
+
+- `短線`：1-5 日，重視短均線、量價突破、法人短期買盤與停損效率。
+- `波段`：2-8 週，重視 MA20/MA60、法人延續性、整理突破與較寬的風控空間。
+- `長線`：3-12 個月，重視 MA60 趨勢、風險邊際、題材持續性與較長目標區間。
 
 ### 個股完整分析頁
 
@@ -76,6 +85,8 @@ http://127.0.0.1:8000/
 - 十字游標與點選固定資料點
 - 趨勢線繪製與清除
 - 分數、價位規劃、系統理由、新聞公告與指標拆解
+- 短線、波段、長線模式切換
+- 直接輸入買入/觀察價與股數，快速加入持股觀察
 
 可用篩選條件：
 
@@ -103,6 +114,8 @@ http://127.0.0.1:8000/
 
 - 快速加入股票代號、名稱、股數、平均買入價、買入日期
 - 設定持股狀態、投資週期、風險承受度與備註
+- 依短期、中期、長期分類檢視持股
+- 可將持股標記為賣出，保存賣出價、賣出股數、賣出日期與已實現損益
 - 刪除持股
 - 自動估算總成本、目前市值、未實現損益與損益率
 - 每筆持股可點擊 `AI`，帶入 AI 頁作為分析參考
@@ -117,6 +130,7 @@ AI 頁和原本篩選儀表板分開，不會阻塞你查看原本介面。
 
 - 單檔股票 AI 分析
 - 個人持股策略分析
+- 短線、波段、長線模式選擇
 - 從持股頁帶入保存的持股資料
 - 追加問題
 - 選擇本機 Ollama 模型
@@ -241,7 +255,7 @@ GET /api/backtest
 篩選參數範例：
 
 ```text
-/api/screener/today?direction=看多&macd_bullish=1&local_model_bullish=1&min_technical=70
+/api/screener/today?mode=swing&direction=看多&macd_bullish=1&local_model_bullish=1&min_technical=70
 ```
 
 手動更新資料：
@@ -250,7 +264,7 @@ GET /api/backtest
 Invoke-RestMethod -Method Post `
   -Uri http://127.0.0.1:8000/api/screener/run `
   -ContentType application/json `
-  -Body '{"mode":"manual"}'
+  -Body '{"mode":"manual","analysis_mode":"swing"}'
 ```
 
 ### 單檔股票
@@ -260,12 +274,15 @@ GET /api/stocks/{stock_id}/report
 GET /api/stocks/{stock_id}/signals
 ```
 
+可加上 `?mode=short`、`?mode=swing`、`?mode=long` 切換分析週期。
+
 ### 持股
 
 ```text
 GET /api/portfolio
 POST /api/portfolio
 POST /api/portfolio/{position_id}
+POST /api/portfolio/{position_id}/sell
 POST /api/portfolio/{position_id}/delete
 ```
 
@@ -308,6 +325,7 @@ python -m compileall app
 node --check static\app.js
 node --check static\ai.js
 node --check static\portfolio.js
+node --check static\stock.js
 ```
 
 檢查服務是否正常：
@@ -331,6 +349,7 @@ app/
   storage.py         SQLite 存取
 static/
   index.html         篩選儀表板
+  stock.html         個股完整分析頁
   portfolio.html     持股頁
   ai.html            AI 分析頁
   styles.css         全站暗色 UI

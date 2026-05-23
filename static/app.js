@@ -2,6 +2,7 @@ const state = {
   items: [],
   selectedStockId: "",
   industriesLoaded: false,
+  analysisMode: "short",
 };
 
 const chartColors = {
@@ -16,6 +17,7 @@ const chartColors = {
 const elements = {
   runMeta: document.querySelector("#runMeta"),
   refreshBtn: document.querySelector("#refreshBtn"),
+  modeButtons: [...document.querySelectorAll("[data-mode]")],
   industryFilter: document.querySelector("#industryFilter"),
   scoreFilter: document.querySelector("#scoreFilter"),
   directionFilter: document.querySelector("#directionFilter"),
@@ -68,6 +70,7 @@ async function fetchJson(url, options = {}) {
 
 function params() {
   const query = new URLSearchParams();
+  query.set("mode", state.analysisMode);
   query.set("industry", elements.industryFilter.value || "all");
   query.set("min_score", elements.scoreFilter.value || "0");
   query.set("direction", elements.directionFilter.value || "all");
@@ -98,7 +101,8 @@ async function loadToday() {
   try {
     const payload = await fetchJson(`/api/screener/today?${params()}`);
     state.items = payload.items || [];
-    elements.runMeta.textContent = `正式資料 · 掃描日期 ${payload.run_date || "-"}，目前 ${payload.count || 0} 檔符合條件`;
+    const modeLabel = modeLabelText(payload.analysis_mode || state.analysisMode);
+    elements.runMeta.textContent = `正式資料 · ${modeLabel}模式 · 掃描日期 ${payload.run_date || "-"}，目前 ${payload.count || 0} 檔符合條件`;
     elements.resultCount.textContent = `${payload.count || 0} 檔`;
     if (!state.industriesLoaded) {
       renderIndustries(payload.industries || []);
@@ -187,7 +191,7 @@ async function loadReport(stockId) {
   elements.detailBody.hidden = true;
   elements.detailEmpty.innerHTML = `<span class="inlineLoader">載入 ${escapeHtml(stockId)} 分析中</span>`;
   try {
-    const report = await fetchJson(`/api/stocks/${encodeURIComponent(stockId)}/report`);
+    const report = await fetchJson(`/api/stocks/${encodeURIComponent(stockId)}/report?mode=${encodeURIComponent(state.analysisMode)}`);
     if (report.error) {
       clearDetail("找不到股票資料");
       return;
@@ -199,7 +203,7 @@ async function loadReport(stockId) {
     elements.detailTitle.textContent = `${score.stock_id} ${score.name}`;
     elements.detailDecision.textContent = score.decision;
     elements.fullDetailLink.hidden = false;
-    elements.fullDetailLink.href = `/stock.html?id=${encodeURIComponent(score.stock_id)}`;
+    elements.fullDetailLink.href = `/stock.html?id=${encodeURIComponent(score.stock_id)}&mode=${encodeURIComponent(state.analysisMode)}`;
     elements.directionText.textContent = details.direction || "-";
     elements.directionText.className = directionClassName(details.direction || "");
     elements.investmentAdvice.textContent = details.investment_advice || "";
@@ -418,7 +422,7 @@ async function runScreener() {
   try {
     const payload = await fetchJson("/api/screener/run", {
       method: "POST",
-      body: JSON.stringify({ mode: "manual" }),
+      body: JSON.stringify({ mode: "manual", analysis_mode: state.analysisMode }),
     });
     elements.runMeta.textContent = `完成 ${payload.run_date}，來源 ${payload.source}，共 ${payload.count} 檔`;
     state.selectedStockId = "";
@@ -438,7 +442,7 @@ async function loadBacktest() {
     .map(() => `<div class="backtestItem skeletonBlock"><span class="skeleton short"></span><span class="skeleton"></span><span class="skeleton"></span></div>`)
     .join("");
   try {
-    const payload = await fetchJson("/api/backtest");
+    const payload = await fetchJson(`/api/backtest?mode=${encodeURIComponent(state.analysisMode)}`);
     elements.backtestStrategy.textContent = payload.strategy || "-";
     elements.backtestRows.innerHTML = (payload.results || [])
       .map(
@@ -453,6 +457,32 @@ async function loadBacktest() {
     elements.backtestStrategy.textContent = `回測載入失敗：${error.message}`;
     elements.backtestRows.innerHTML = "";
   }
+}
+
+function setAnalysisMode(mode) {
+  state.analysisMode = ["short", "swing", "long"].includes(mode) ? mode : "short";
+  elements.modeButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.mode === state.analysisMode);
+  });
+  state.selectedStockId = "";
+  loadToday().then(loadBacktest);
+}
+
+function modeLabelText(mode) {
+  if (mode === "swing") return "波段";
+  if (mode === "long") return "長線";
+  return "短線";
+}
+
+function initAnalysisMode() {
+  const params = new URLSearchParams(window.location.search);
+  const requested = params.get("mode") || params.get("analysis_mode");
+  if (["short", "swing", "long"].includes(requested)) {
+    state.analysisMode = requested;
+  }
+  elements.modeButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.mode === state.analysisMode);
+  });
 }
 
 function decisionClassName(value) {
@@ -522,6 +552,9 @@ function ensureLoadingToast() {
 }
 
 elements.refreshBtn.addEventListener("click", runScreener);
+elements.modeButtons.forEach((button) => {
+  button.addEventListener("click", () => setAnalysisMode(button.dataset.mode));
+});
 [
   elements.industryFilter,
   elements.scoreFilter,
@@ -545,4 +578,5 @@ elements.refreshBtn.addEventListener("click", runScreener);
   element.addEventListener("change", loadToday);
 });
 
+initAnalysisMode();
 loadToday().then(loadBacktest);
