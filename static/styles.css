@@ -56,6 +56,7 @@ body {
   font-family: "Segoe UI", "Noto Sans TC", Arial, sans-serif;
   line-height: 1.45;
   color-scheme: dark;
+  overflow-x: hidden;
 }
 
 .stockPage {
@@ -319,6 +320,8 @@ textarea {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .layout {
@@ -333,6 +336,7 @@ textarea {
 .backtestPanel,
 .aiControlPanel,
 .aiOutputPanel {
+  min-width: 0;
   background: rgba(16, 24, 33, 0.94);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -1538,5 +1542,326 @@ footer {
   .backtestPanel,
   footer {
     width: min(100vw - 18px, 1480px);
+  }
+}
+
+@media (max-width: 760px) {
+  body {
+    font-size: 14px;
+  }
+
+  .topbar,
+  .filters,
+  .modeSwitch,
+  .layout,
+  .stockWorkspace,
+  .stockFullWidth,
+  .aiLayout,
+  .portfolioLayout,
+  .portfolioSummary,
+  .portfolioGroups,
+  .backtestPanel,
+  footer {
+    width: min(100vw - 16px, 1480px);
+  }
+
+  .topbar {
+    min-height: 0;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 0 8px;
+  }
+
+  h1 {
+    font-size: 24px;
+    line-height: 1.2;
+  }
+
+  h2 {
+    font-size: 16px;
+  }
+
+  #runMeta,
+  #stockPageMeta,
+  #portfolioMeta,
+  #aiMeta {
+    font-size: 13px;
+  }
+
+  .actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    justify-content: stretch;
+    width: 100%;
+  }
+
+  .actions .buttonLink,
+  .actions button {
+    width: 100%;
+    min-height: 42px;
+    padding: 0 10px;
+  }
+
+  .modeSwitch {
+    display: flex;
+    grid-template-columns: none;
+    gap: 8px;
+    margin-top: 2px;
+    margin-bottom: 10px;
+    padding-bottom: 2px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+  }
+
+  .modeButton {
+    min-width: 128px;
+    min-height: 58px;
+    padding: 9px 10px;
+    scroll-snap-align: start;
+  }
+
+  .compactModeSwitch .modeButton {
+    min-width: 104px;
+  }
+
+  .modeButton strong {
+    font-size: 15px;
+  }
+
+  .modeButton span {
+    font-size: 11px;
+    line-height: 1.35;
+  }
+
+  .filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px;
+    box-shadow: none;
+  }
+
+  label {
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  select,
+  input {
+    min-height: 40px;
+  }
+
+  textarea {
+    min-height: 86px;
+  }
+
+  .check,
+  .checkboxRow {
+    min-height: 42px;
+  }
+
+  .checkboxRow span {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .layout,
+  .stockWorkspace,
+  .aiLayout,
+  .portfolioLayout {
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .listPanel,
+  .detailPanel,
+  .backtestPanel,
+  .aiControlPanel,
+  .aiOutputPanel,
+  .chartPanel,
+  .stockSidePanel > .listPanel,
+  .summaryItem,
+  .groupCard {
+    box-shadow: none;
+  }
+
+  .panelHead {
+    min-height: 48px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .panelHead span,
+  .stockSidePanel .panelHead span {
+    flex: 1 1 100%;
+    max-width: none;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  .detailBody,
+  .aiForm,
+  .aiLiveShell,
+  .backtestRows {
+    padding: 10px;
+  }
+
+  .tableWrap {
+    border-radius: 0 0 8px 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    min-width: 900px;
+  }
+
+  .portfolioTable {
+    min-width: 760px;
+  }
+
+  th,
+  td {
+    padding: 10px 8px;
+    font-size: 12px;
+  }
+
+  .scoreGrid,
+  .compactScoreGrid,
+  .portfolioSummary,
+  .probGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compactScoreGrid .metric:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .metric,
+  .summaryItem,
+  .groupCard {
+    min-height: 66px;
+    padding: 9px;
+  }
+
+  .metric strong,
+  .summaryItem strong,
+  .groupCard strong {
+    font-size: 19px;
+  }
+
+  .advicePanel,
+  .portfolioGroups,
+  .backtestRows,
+  .breakdownGrid,
+  .aiFact,
+  .decisionBlock,
+  .sellEditor {
+    grid-template-columns: 1fr;
+  }
+
+  .chartHead {
+    gap: 8px;
+  }
+
+  .chartToolbar {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .chartToolbar select,
+  .chartToolbar button {
+    flex: 0 0 auto;
+    min-width: 68px;
+    min-height: 34px;
+  }
+
+  .chartInfoBar {
+    min-height: 38px;
+    gap: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .interactiveChart {
+    width: calc(100% - 16px);
+    margin: 8px;
+  }
+
+  .stockSidePanel {
+    gap: 10px;
+  }
+
+  .aiOutput {
+    min-height: 300px;
+    max-height: none;
+    font-size: 13px;
+    line-height: 1.62;
+  }
+
+  .aiOutputMessage {
+    min-height: 260px;
+    padding: 18px;
+  }
+
+  .indicatorItem {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .indicatorValue {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .rowActions {
+    flex-wrap: wrap;
+  }
+
+  .loadingToast {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    max-width: none;
+  }
+
+  footer {
+    padding: 14px 0 22px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .actions,
+  .filters,
+  .scoreGrid,
+  .portfolioSummary,
+  .probGrid {
+    grid-template-columns: 1fr;
+  }
+
+  h1 {
+    font-size: 22px;
+  }
+
+  .modeButton {
+    min-width: 112px;
+  }
+
+  .compactModeSwitch .modeButton {
+    min-width: 96px;
+  }
+
+  .badge,
+  .direction {
+    min-width: 54px;
+    padding-inline: 7px;
   }
 }

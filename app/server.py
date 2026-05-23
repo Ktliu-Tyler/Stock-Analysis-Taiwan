@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import socket
 import threading
 import time
 from datetime import datetime
@@ -194,6 +195,44 @@ def scheduler_loop() -> None:
         time.sleep(15 * 60)
 
 
+def _discover_lan_urls(port: int) -> list[str]:
+    addresses: set[str] = set()
+    try:
+        for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET, socket.SOCK_DGRAM):
+            ip = info[4][0]
+            if ip and not ip.startswith("127."):
+                addresses.add(ip)
+    except OSError:
+        pass
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            ip = sock.getsockname()[0]
+            if ip and not ip.startswith("127."):
+                addresses.add(ip)
+    except OSError:
+        pass
+
+    return [f"http://{ip}:{port}/" for ip in sorted(addresses)]
+
+
+def _print_startup_urls(host: str, port: int) -> None:
+    if host in {"0.0.0.0", "::", ""}:
+        print(f"Local URL: http://127.0.0.1:{port}/")
+        lan_urls = _discover_lan_urls(port)
+        if lan_urls:
+            print("LAN URLs for phones/tablets on the same Wi-Fi:")
+            for url in lan_urls:
+                print(f"  {url}")
+        else:
+            print("LAN access is enabled. Use ipconfig to find this PC's IPv4 address.")
+    else:
+        print(f"Serving on http://{host}:{port}/")
+        print("LAN access is disabled because the server is bound to a single local address.")
+        print(f"For phone access on the same Wi-Fi, restart with: python run_app.py --host 0.0.0.0 --port {port}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Taiwan stock investment analysis system")
     parser.add_argument("--host", default="127.0.0.1")
@@ -202,7 +241,7 @@ def main() -> None:
     if ENABLE_SCHEDULER:
         threading.Thread(target=scheduler_loop, daemon=True).start()
     server = ThreadingHTTPServer((args.host, args.port), StockScreenerHandler)
-    print(f"Serving on http://{args.host}:{args.port}")
+    _print_startup_urls(args.host, args.port)
     server.serve_forever()
 
 
