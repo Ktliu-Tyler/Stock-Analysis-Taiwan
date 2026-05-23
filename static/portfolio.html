@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>持股紀錄</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>持股紀錄</h1>
+        <p id="portfolioMeta">載入中</p>
+      </div>
+      <div class="actions">
+        <a class="buttonLink secondary" href="/ai.html">AI 分析</a>
+        <a class="buttonLink secondary" href="/">返回篩選</a>
+      </div>
+    </header>
+
+    <section class="portfolioSummary" id="portfolioSummary"></section>
+
+    <main class="portfolioLayout">
+      <section class="aiControlPanel">
+        <div class="panelHead">
+          <h2>快速加入持股</h2>
+          <span>輸入股票代號即可</span>
+        </div>
+        <form id="positionForm" class="aiForm">
+          <label>
+            股票代號
+            <input id="stockIdInput" type="text" inputmode="numeric" placeholder="例如 2330" required />
+          </label>
+          <label>
+            股票名稱
+            <input id="stockNameInput" type="text" placeholder="可留空，系統會嘗試帶入" />
+          </label>
+          <label>
+            持股股數
+            <input id="sharesInput" type="number" min="0" step="1" placeholder="例如 1000" required />
+          </label>
+          <label>
+            平均買入價
+            <input id="averageCostInput" type="number" min="0" step="0.01" placeholder="例如 650.00" required />
+          </label>
+          <label>
+            買入日期
+            <input id="buyDateInput" type="date" />
+          </label>
+          <label>
+            持股狀態
+            <select id="positionStatus">
+              <option value="已持有">已持有</option>
+              <option value="準備買入">準備買入</option>
+              <option value="想加碼">想加碼</option>
+              <option value="想減碼">想減碼</option>
+              <option value="套牢中">套牢中</option>
+              <option value="獲利中">獲利中</option>
+            </select>
+          </label>
+          <label>
+            投資週期
+            <select id="horizonInput">
+              <option value="短線1-5日">短線1-5日</option>
+              <option value="波段2-8週">波段2-8週</option>
+              <option value="中長線3-12月">中長線3-12月</option>
+            </select>
+          </label>
+          <label>
+            風險承受度
+            <select id="riskProfile">
+              <option value="中等">中等</option>
+              <option value="保守">保守</option>
+              <option value="積極">積極</option>
+            </select>
+          </label>
+          <label>
+            備註
+            <textarea id="notesInput" rows="4" placeholder="例如：短線觀察，跌破成本不想抱太久。"></textarea>
+          </label>
+          <button id="savePositionBtn" type="submit">加入持股</button>
+        </form>
+      </section>
+
+      <section class="listPanel">
+        <div class="panelHead">
+          <h2>我的持股</h2>
+          <span id="positionCount">0 筆</span>
+        </div>
+        <div class="tableWrap">
+          <table class="portfolioTable">
+            <thead>
+              <tr>
+                <th>股票</th>
+                <th>股數</th>
+                <th>成本</th>
+                <th>現價</th>
+                <th>市值</th>
+                <th>損益</th>
+                <th>狀態</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="positionRows"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      持股損益以系統最新價格估算，僅供研究與紀錄使用。
+    </footer>
+
+    <script src="/portfolio.js"></script>
+  </body>
+</html>
+

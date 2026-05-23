@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>台股短線買入篩選</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>台股短線買入篩選</h1>
+        <p id="runMeta">載入中</p>
+      </div>
+      <div class="actions">
+        <a class="buttonLink secondary" href="/portfolio.html">持股紀錄</a>
+        <a class="buttonLink secondary" href="/ai.html">AI 分析</a>
+        <button id="refreshBtn" type="button">更新資料</button>
+      </div>
+    </header>
+
+    <section class="filters" aria-label="篩選條件">
+      <label>
+        產業
+        <select id="industryFilter">
+          <option value="all">全部</option>
+        </select>
+      </label>
+      <label>
+        最低分數
+        <input id="scoreFilter" type="number" min="0" max="100" value="60" />
+      </label>
+      <label>
+        多空方向
+        <select id="directionFilter">
+          <option value="all">全部</option>
+          <option value="看多">看多</option>
+          <option value="偏多">偏多</option>
+          <option value="中性">中性</option>
+          <option value="偏空">偏空</option>
+          <option value="看空">看空</option>
+        </select>
+      </label>
+      <label>
+        投資建議
+        <select id="adviceFilter">
+          <option value="all">全部</option>
+          <option value="適合買入">適合買入</option>
+          <option value="觀察">觀察</option>
+          <option value="等待拉回">等待拉回</option>
+          <option value="避開">避開</option>
+        </select>
+      </label>
+      <label>
+        最低成交量
+        <input id="volumeFilter" type="number" min="0" step="100000" value="600000" />
+      </label>
+      <label>
+        技術分
+        <input id="techFilter" type="number" min="0" max="100" value="0" />
+      </label>
+      <label>
+        籌碼分
+        <input id="chipScoreFilter" type="number" min="0" max="100" value="0" />
+      </label>
+      <label>
+        情緒分
+        <input id="sentimentFilter" type="number" min="0" max="100" value="0" />
+      </label>
+      <label>
+        風控分
+        <input id="riskScoreFilter" type="number" min="0" max="100" value="0" />
+      </label>
+      <label>
+        模型信心
+        <input id="modelConfidenceFilter" type="number" min="0" max="100" value="0" />
+      </label>
+      <label class="check">
+        <input id="flowFilter" type="checkbox" />
+        法人偏多
+      </label>
+      <label class="check">
+        <input id="riskFilter" type="checkbox" checked />
+        排除高風險
+      </label>
+      <label class="check">
+        <input id="maFilter" type="checkbox" />
+        均線偏多
+      </label>
+      <label class="check">
+        <input id="macdFilter" type="checkbox" />
+        MACD偏多
+      </label>
+      <label class="check">
+        <input id="volumeBreakoutFilter" type="checkbox" />
+        量能突破
+      </label>
+      <label class="check">
+        <input id="breakoutFilter" type="checkbox" />
+        20日突破
+      </label>
+      <label class="check">
+        <input id="sentimentPositiveFilter" type="checkbox" />
+        情緒正向
+      </label>
+      <label class="check">
+        <input id="modelBullishFilter" type="checkbox" />
+        模型偏多
+      </label>
+    </section>
+
+    <main class="layout">
+      <section class="listPanel">
+        <div class="panelHead">
+          <h2>候選清單</h2>
+          <span id="resultCount">0 檔</span>
+        </div>
+        <div class="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>股票</th>
+                <th>多空</th>
+                <th>結論</th>
+                <th>總分</th>
+                <th>技術</th>
+                <th>籌碼</th>
+                <th>情緒</th>
+                <th>風控</th>
+                <th>觀察價</th>
+                <th>停損</th>
+                <th>資料時間</th>
+              </tr>
+            </thead>
+            <tbody id="stockRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="detailPanel">
+        <div class="panelHead">
+          <h2 id="detailTitle">單檔分析</h2>
+          <span id="detailDecision">尚未選取</span>
+        </div>
+        <div id="detailEmpty" class="empty">請從左側清單選擇股票</div>
+        <div id="detailBody" class="detailBody" hidden>
+          <div class="scoreGrid" id="scoreGrid"></div>
+          <div class="advicePanel">
+            <div>
+              <span>多空方向</span>
+              <strong id="directionText">-</strong>
+            </div>
+            <p id="investmentAdvice"></p>
+          </div>
+          <canvas id="priceChart" width="760" height="320"></canvas>
+          <canvas id="flowChart" width="760" height="180"></canvas>
+          <div class="modelPanel" id="localModelPanel"></div>
+          <div class="breakdownPanel">
+            <h3>指標影響拆解</h3>
+            <div id="indicatorBreakdown" class="breakdownGrid"></div>
+          </div>
+          <div class="decisionBlock">
+            <div>
+              <h3>買入理由</h3>
+              <p id="buyReason"></p>
+            </div>
+            <div>
+              <h3>避開條件</h3>
+              <p id="avoidReason"></p>
+            </div>
+          </div>
+          <div>
+            <h3>近期新聞/公告</h3>
+            <ul id="newsList" class="newsList"></ul>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <section class="backtestPanel">
+      <div class="panelHead">
+        <h2>1-5 日回測</h2>
+        <span id="backtestStrategy">載入中</span>
+      </div>
+      <div id="backtestRows" class="backtestRows"></div>
+    </section>
+
+    <footer>
+      研究輔助工具，不構成投資建議。
+    </footer>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

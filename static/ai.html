@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AI 股票分析</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>AI 股票分析</h1>
+        <p id="aiMeta">連線 Ollama 中</p>
+      </div>
+      <div class="actions">
+        <a class="buttonLink secondary" href="/portfolio.html">持股紀錄</a>
+        <a class="buttonLink secondary" href="/">返回篩選</a>
+      </div>
+    </header>
+
+    <main class="aiLayout">
+      <section class="aiControlPanel">
+        <div class="panelHead">
+          <h2>分析設定</h2>
+          <span id="ollamaStatus">檢查中</span>
+        </div>
+        <div class="aiForm">
+          <label>
+            股票
+            <select id="stockSelect"></select>
+          </label>
+          <label>
+            Ollama 模型
+            <select id="modelSelect"></select>
+          </label>
+          <label>
+            追加問題
+            <textarea id="stockQuestion" rows="4" placeholder="例如：是否適合今天追價？應該等哪個價位？"></textarea>
+          </label>
+          <button id="stockAnalyzeBtn" type="button">分析該檔股票</button>
+        </div>
+      </section>
+
+      <section class="aiOutputPanel">
+        <div class="panelHead">
+          <h2>單檔 AI 建議</h2>
+          <span id="stockOutputMeta">尚未分析</span>
+        </div>
+        <div id="stockOutput" class="aiOutput aiOutputMessage">請先選擇股票並開始分析。</div>
+      </section>
+
+      <section class="aiControlPanel">
+        <div class="panelHead">
+          <h2>我的持股狀態</h2>
+          <span>股數與成本可留空</span>
+        </div>
+        <div class="aiForm">
+          <label>
+            已保存持股
+            <select id="savedPositionSelect">
+              <option value="">不使用保存持股</option>
+            </select>
+          </label>
+          <label>
+            持股股數
+            <input id="sharesInput" type="number" min="0" step="1" placeholder="例如 1000" />
+          </label>
+          <label>
+            平均買入價
+            <input id="averageCostInput" type="number" min="0" step="0.01" placeholder="例如 650.00" />
+          </label>
+          <label>
+            目前狀態
+            <select id="positionStatus">
+              <option value="已持有">已持有</option>
+              <option value="準備買入">準備買入</option>
+              <option value="想加碼">想加碼</option>
+              <option value="想減碼">想減碼</option>
+              <option value="套牢中">套牢中</option>
+              <option value="獲利中">獲利中</option>
+            </select>
+          </label>
+          <label>
+            投資週期
+            <select id="horizonInput">
+              <option value="短線1-5日">短線1-5日</option>
+              <option value="波段2-8週">波段2-8週</option>
+              <option value="中長線3-12月">中長線3-12月</option>
+            </select>
+          </label>
+          <label>
+            風險承受度
+            <select id="riskProfile">
+              <option value="中等">中等</option>
+              <option value="保守">保守</option>
+              <option value="積極">積極</option>
+            </select>
+          </label>
+          <label>
+            補充說明
+            <textarea id="positionNotes" rows="4" placeholder="例如：目前想短線賺 3-5%，跌破成本不想抱太久。"></textarea>
+          </label>
+          <button id="positionAnalyzeBtn" type="button">分析我的買賣策略</button>
+        </div>
+      </section>
+
+      <section class="aiOutputPanel">
+        <div class="panelHead">
+          <h2>持股 AI 建議</h2>
+          <span id="positionOutputMeta">尚未分析</span>
+        </div>
+        <div id="positionOutput" class="aiOutput aiOutputMessage">輸入持股狀態後，可以讓 AI 給出續抱、加碼、減碼或停損條件。</div>
+      </section>
+    </main>
+
+    <footer>
+      AI 回覆是研究輔助，不構成投資建議；請搭配原本篩選頁與實際風險控管。
+    </footer>
+
+    <script src="/ai.js"></script>
+  </body>
+</html>
