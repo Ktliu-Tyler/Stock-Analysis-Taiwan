@@ -17,7 +17,13 @@
 
 ### 尚待處理
 
-- 本機不是 git repo，尚未 commit 或 push。
-- 本機缺少 GitHub CLI `gh`，尚未建立 GitHub repo。
 - 尚未設定 `.env`、GitHub Secrets、Email 或 LINE token。
 - 尚未執行真實資料晨報，需等通知設定完成後再測。
+
+### GitHub 發布
+
+- 已連接遠端 repo：`Ktliu-Tyler/Stock-Analysis-Taiwan`。
+- 已以遠端 `main` 為基底合併，不覆蓋既有 Web app 檔案。
+- 已推送 commit：`92d6596 Add daily stock report agent workflow`。
+- 推送前確認 `.env`、`reports/*.json`、`reports/*.svg`、`venv/`、`__pycache__/` 皆未 staged。
+- 本機仍缺少 GitHub CLI `gh`，但已使用 `git push origin main` 完成發布。
