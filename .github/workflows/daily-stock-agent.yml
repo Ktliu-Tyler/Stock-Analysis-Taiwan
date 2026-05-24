@@ -1,0 +1,51 @@
+name: Daily Stock Agent
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 7 * * 1-5"
+      timezone: "Asia/Taipei"
+
+jobs:
+  daily-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUTF8: "1"
+      AGENT_THRESHOLD: ${{ vars.AGENT_THRESHOLD || '65' }}
+      AGENT_QUICK_MODE: ${{ vars.AGENT_QUICK_MODE || 'false' }}
+      AGENT_STOCKS: ${{ vars.AGENT_STOCKS || '' }}
+      AGENT_SEND_EMAIL: ${{ vars.AGENT_SEND_EMAIL || 'false' }}
+      EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER || 'resend' }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ vars.SMTP_PORT || '587' }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_USE_TLS: ${{ vars.SMTP_USE_TLS || 'true' }}
+      AGENT_SEND_LINE: ${{ vars.AGENT_SEND_LINE || 'false' }}
+      LINE_CHANNEL_ACCESS_TOKEN: ${{ secrets.LINE_CHANNEL_ACCESS_TOKEN }}
+      LINE_TO: ${{ secrets.LINE_TO }}
+      LINE_REPORT_URL: ${{ vars.LINE_REPORT_URL || '' }}
+      LINE_POSTER_IMAGE_URL: ${{ vars.LINE_POSTER_IMAGE_URL || '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Integrity checks
+        run: python scripts/integrity_check.py
+
+      - name: Run daily agent
+        run: python daily_agent.py

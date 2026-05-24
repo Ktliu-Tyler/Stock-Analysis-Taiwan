@@ -390,6 +390,31 @@ node --check static\stock.js
 Invoke-RestMethod http://127.0.0.1:8000/api/health
 ```
 
+## 每日晨報 Agent
+
+本專案已加入每日晨報 agent 規劃與執行骨架，可在週一到週五早上自動產生台股分析摘要、Top picks、HTML 報告、視覺海報與通知摘要。
+
+相關文件：
+
+- `docs/DAILY_AGENT_PLAN.md`：整體規劃、報告規格、通知策略與排程策略。
+- `docs/WORKFLOW.md`：本機檢查、GitHub 上傳、Secrets 設定與紀錄流程。
+- `docs/LOGBOOK.md`：本次變更與後續待辦紀錄。
+
+本機 dry run：
+
+```powershell
+python scripts\integrity_check.py
+python daily_agent.py --sample --dry-run
+```
+
+上傳前請先執行：
+
+```powershell
+python scripts\secret_scan.py
+```
+
+注意：`.env`、API key、LINE token、Email 密碼、`reports/` 產物與個人資料不得 commit 到 GitHub。
+
 ## 目錄結構
 
 ```text

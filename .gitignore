@@ -1,10 +1,16 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
+# Local credentials and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*
+secrets*
+
+# Generated reports and run records
+reports/*
+!reports/.gitkeep
+*.log
 
 # Local runtime data
 data/*.sqlite
@@ -13,14 +19,21 @@ data/*.db
 data/*.log
 data/*.png
 
-# Environment / editor
-.env
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*$py.class
 .venv/
 venv/
+
+# Tooling and editor files
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .vscode/
 .idea/
 
 # OS
 Thumbs.db
 .DS_Store
-
