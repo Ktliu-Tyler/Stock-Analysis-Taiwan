@@ -26,26 +26,64 @@ class ScreenerService:
             self._demo_storage = Storage(self._demo_db_path)
         return self._demo_storage
 
-    def run(self, use_demo: bool = False, mode: str = "after_hours", analysis_mode: str = "short") -> dict[str, Any]:
+    def run(
+        self,
+        use_demo: bool = False,
+        mode: str = "after_hours",
+        analysis_mode: str = "short",
+        force_refresh: bool = False,
+        rescore_only: bool = False,
+    ) -> dict[str, Any]:
         analysis_mode = normalize_analysis_mode(analysis_mode)
         if use_demo:
             scores = self.load_demo_scores(mode=mode, analysis_mode=analysis_mode)
             return self._run_response(scores, source="demo")
 
         self.remove_demo_data(clear_market_data=False)
+        if rescore_only:
+            return self.rescore_local(analysis_mode=analysis_mode, source="local_rescore", mode=mode)
+
+        today = date.today().isoformat()
+        cached_scores = [
+            score
+            for score in self.storage.get_scores(run_date=today, include_demo=False)
+            if self._can_use_same_day_cache(score)
+        ]
+        if cached_scores and not force_refresh:
+            cached_ids = {score.stock_id for score in cached_scores}
+            stocks = [stock for stock in self.storage.get_stocks() if stock.stock_id in cached_ids]
+            scores = self.score_universe(stocks, data_source=f"local/cache/{mode}", analysis_mode=analysis_mode)
+            return self._run_response(
+                scores,
+                source="local_cache",
+                message="今天已更新過市場資料，本次直接使用本機快取重新評分。",
+                stats={
+                    "cached": len(stocks),
+                    "downloaded": 0,
+                    "failed": 0,
+                    "skipped": 0,
+                    "force_refresh": False,
+                    "rescore_only": False,
+                },
+            )
+
         try:
             stocks, universe_source = self.client.select_universe()
             self.storage.upsert_stocks(stocks)
             downloaded_stock_ids: list[str] = []
+            failed_stock_ids: list[str] = []
+            skipped_stock_ids: list[str] = []
             for stock in stocks:
                 try:
                     prices = self.client.get_prices(stock.stock_id)
                     if len(prices) < 30:
+                        skipped_stock_ids.append(stock.stock_id)
                         continue
                     flows = self.client.get_institutional_flows(stock.stock_id)
                     margins = self.client.get_margin(stock.stock_id)
                     news = self.client.get_news(stock)
                 except DataFetchError:
+                    failed_stock_ids.append(stock.stock_id)
                     continue
                 self.storage.clear_stock_market_data(stock.stock_id)
                 self.storage.upsert_prices(prices)
@@ -55,12 +93,36 @@ class ScreenerService:
                 downloaded_stock_ids.append(stock.stock_id)
 
             if not downloaded_stock_ids:
+                local_stocks = self._stocks_with_market_data()
+                if local_stocks:
+                    scores = self.score_universe(local_stocks, data_source=f"local/fallback/{mode}", analysis_mode=analysis_mode)
+                    return self._run_response(
+                        scores,
+                        source="local_fallback",
+                        message="本次沒有成功下載新資料，已改用本機既有資料重新評分。",
+                        stats={
+                            "cached": len(local_stocks),
+                            "downloaded": 0,
+                            "failed": len(failed_stock_ids),
+                            "skipped": len(skipped_stock_ids),
+                            "force_refresh": force_refresh,
+                            "rescore_only": False,
+                        },
+                    )
                 return {
                     "source": "real_data_unavailable",
                     "run_date": date.today().isoformat(),
                     "count": 0,
                     "items": [],
                     "message": "No real market data was downloaded; demo data was not used.",
+                    "stats": {
+                        "cached": 0,
+                        "downloaded": 0,
+                        "failed": len(failed_stock_ids),
+                        "skipped": len(skipped_stock_ids),
+                        "force_refresh": force_refresh,
+                        "rescore_only": False,
+                    },
                 }
 
             scores = self.score_universe(
@@ -68,15 +130,93 @@ class ScreenerService:
                 data_source=f"{universe_source}/{mode}",
                 analysis_mode=analysis_mode,
             )
-            return self._run_response(scores, source=universe_source)
+            return self._run_response(
+                scores,
+                source=universe_source,
+                message="市場資料更新完成。",
+                stats={
+                    "cached": 0,
+                    "downloaded": len(downloaded_stock_ids),
+                    "failed": len(failed_stock_ids),
+                    "skipped": len(skipped_stock_ids),
+                    "force_refresh": force_refresh,
+                    "rescore_only": False,
+                },
+            )
         except Exception as exc:
+            local_stocks = self._stocks_with_market_data()
+            if local_stocks:
+                scores = self.score_universe(local_stocks, data_source=f"local/fallback/{mode}", analysis_mode=analysis_mode)
+                return self._run_response(
+                    scores,
+                    source="local_fallback",
+                    message=f"市場資料更新失敗，已改用本機既有資料重新評分。{exc}",
+                    stats={
+                        "cached": len(local_stocks),
+                        "downloaded": 0,
+                        "failed": 0,
+                        "skipped": 0,
+                        "force_refresh": force_refresh,
+                        "rescore_only": False,
+                    },
+                )
             return {
                 "source": "real_data_error",
                 "run_date": date.today().isoformat(),
                 "count": 0,
                 "items": [],
                 "message": f"Real market data update failed; demo data was not used. {exc}",
+                "stats": {
+                    "cached": 0,
+                    "downloaded": 0,
+                    "failed": 0,
+                    "skipped": 0,
+                    "force_refresh": force_refresh,
+                    "rescore_only": False,
+                },
             }
+
+    def rescore_local(self, analysis_mode: str = "short", source: str = "local_rescore", mode: str = "manual") -> dict[str, Any]:
+        analysis_mode = normalize_analysis_mode(analysis_mode)
+        stocks = self._stocks_with_market_data()
+        if not stocks:
+            return {
+                "source": source,
+                "run_date": date.today().isoformat(),
+                "count": 0,
+                "items": [],
+                "message": "本機沒有足夠市場資料可重新評分，請先更新資料。",
+                "stats": {
+                    "cached": 0,
+                    "downloaded": 0,
+                    "failed": 0,
+                    "skipped": 0,
+                    "force_refresh": False,
+                    "rescore_only": True,
+                },
+            }
+        had_today_cache = bool(
+            [
+                score
+                for score in self.storage.get_scores(run_date=date.today().isoformat(), include_demo=False)
+                if self._can_use_same_day_cache(score)
+            ]
+        )
+        data_source = f"local/cache/{mode}" if had_today_cache else f"{source}/{mode}"
+        scores = self.score_universe(stocks, data_source=data_source, analysis_mode=analysis_mode)
+        return self._run_response(
+            scores,
+            source=source,
+            message="已使用本機資料完成重新評分，未重新抓取市場資料。",
+            stats={
+                "cached": len(stocks),
+                "downloaded": 0,
+                "failed": 0,
+                "skipped": 0,
+                "force_refresh": False,
+                "rescore_only": True,
+            },
+        )
 
     def load_demo_scores(self, mode: str = "after_hours", analysis_mode: str = "short") -> list[ScoreResult]:
         analysis_mode = normalize_analysis_mode(analysis_mode)
@@ -383,13 +523,32 @@ class ScreenerService:
         rescored.sort(key=lambda item: item.buy_score, reverse=True)
         return rescored
 
-    def _run_response(self, scores: list[ScoreResult], source: str) -> dict[str, Any]:
-        return {
+    def _stocks_with_market_data(self, storage: Storage | None = None) -> list[Stock]:
+        storage = storage or self.storage
+        return [stock for stock in storage.get_stocks() if len(storage.get_prices(stock.stock_id)) >= 30]
+
+    def _can_use_same_day_cache(self, score: ScoreResult) -> bool:
+        source = (score.data_freshness or "").split(" / ")[0]
+        return not source.startswith("local_rescore/") and not source.startswith("local/fallback/")
+
+    def _run_response(
+        self,
+        scores: list[ScoreResult],
+        source: str,
+        message: str = "",
+        stats: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        payload = {
             "source": source,
             "run_date": date.today().isoformat(),
             "count": len(scores),
             "items": [score.to_dict() for score in scores],
         }
+        if message:
+            payload["message"] = message
+        if stats is not None:
+            payload["stats"] = stats
+        return payload
 
 
 def _round(value: Any) -> float | None:

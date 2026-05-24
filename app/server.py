@@ -65,7 +65,18 @@ class StockScreenerHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/screener/run":
             body = self._read_json()
             mode = str(body.get("mode", "after_hours"))
-            self._json(service.run(use_demo=False, mode=mode, analysis_mode=str(body.get("analysis_mode") or "short")))
+            policy = str(body.get("update_policy") or body.get("policy") or "").strip().lower()
+            force_refresh = policy == "force" or _body_bool(body.get("force_refresh"))
+            rescore_only = policy == "rescore" or mode == "rescore" or _body_bool(body.get("rescore_only"))
+            self._json(
+                service.run(
+                    use_demo=False,
+                    mode=mode,
+                    analysis_mode=str(body.get("analysis_mode") or "short"),
+                    force_refresh=force_refresh,
+                    rescore_only=rescore_only,
+                )
+            )
             return
         if parsed.path == "/api/ai/analyze-stock":
             body = self._read_json()
@@ -231,6 +242,12 @@ def _print_startup_urls(host: str, port: int) -> None:
         print(f"Serving on http://{host}:{port}/")
         print("LAN access is disabled because the server is bound to a single local address.")
         print(f"For phone access on the same Wi-Fi, restart with: python run_app.py --host 0.0.0.0 --port {port}")
+
+
+def _body_bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def main() -> None:

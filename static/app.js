@@ -17,6 +17,8 @@ const chartColors = {
 const elements = {
   runMeta: document.querySelector("#runMeta"),
   refreshBtn: document.querySelector("#refreshBtn"),
+  rescoreBtn: document.querySelector("#rescoreBtn"),
+  forceRefreshBtn: document.querySelector("#forceRefreshBtn"),
   modeButtons: [...document.querySelectorAll("[data-mode]")],
   industryFilter: document.querySelector("#industryFilter"),
   scoreFilter: document.querySelector("#scoreFilter"),
@@ -419,25 +421,64 @@ function drawEmpty(ctx, canvas, text) {
   ctx.fillText(text, 20, 36);
 }
 
-async function runScreener() {
-  elements.refreshBtn.disabled = true;
-  showLoading("更新市場資料中");
-  elements.runMeta.textContent = "更新資料中";
+async function runScreener(policy = "cache") {
+  const labels = {
+    cache: "更新市場資料",
+    rescore: "本機重新評分",
+    force: "強制更新市場資料",
+  };
+  setUpdateButtonsDisabled(true);
+  showLoading(`${labels[policy] || "更新"}中`);
+  elements.runMeta.textContent = `${labels[policy] || "更新"}中`;
   try {
     const payload = await fetchJson("/api/screener/run", {
       method: "POST",
-      body: JSON.stringify({ mode: "manual", analysis_mode: state.analysisMode }),
+      body: JSON.stringify({
+        mode: policy === "rescore" ? "rescore" : "manual",
+        analysis_mode: state.analysisMode,
+        update_policy: policy,
+        force_refresh: policy === "force",
+        rescore_only: policy === "rescore",
+      }),
     });
-    elements.runMeta.textContent = `完成 ${payload.run_date}，來源 ${payload.source}，共 ${payload.count} 檔`;
+    const updateText = formatRunStatus(payload);
     state.selectedStockId = "";
     await loadToday();
     await loadBacktest();
+    elements.runMeta.textContent = `${updateText}，目前 ${state.items.length} 檔符合條件`;
   } catch (error) {
-    elements.runMeta.textContent = `更新失敗：${error.message}`;
+    elements.runMeta.textContent = `${labels[policy] || "更新"}失敗：${error.message}`;
   } finally {
-    elements.refreshBtn.disabled = false;
+    setUpdateButtonsDisabled(false);
     hideLoading();
   }
+}
+
+function setUpdateButtonsDisabled(disabled) {
+  [elements.refreshBtn, elements.rescoreBtn, elements.forceRefreshBtn].forEach((button) => {
+    button.disabled = disabled;
+  });
+}
+
+function formatRunStatus(payload) {
+  const stats = payload.stats || {};
+  const sourceLabels = {
+    local_cache: "本機快取",
+    local_rescore: "本機重算",
+    local_fallback: "本機備援",
+    twse_top_volume: "TWSE成交量排行",
+    env_watchlist: "自訂清單",
+    default_watchlist: "預設清單",
+    real_data_unavailable: "資料源無回應",
+    real_data_error: "資料源錯誤",
+  };
+  const statText = [
+    `新抓 ${Number(stats.downloaded || 0)} 檔`,
+    `快取 ${Number(stats.cached || 0)} 檔`,
+    `失敗 ${Number(stats.failed || 0)} 檔`,
+    `略過 ${Number(stats.skipped || 0)} 檔`,
+  ].join(" / ");
+  return `${payload.message || "完成"} ${payload.run_date || "-"} · ${sourceLabels[payload.source] || payload.source || "-"} · 共 ${payload.count || 0} 檔 · ${statText}`;
 }
 
 async function loadBacktest() {
@@ -555,7 +596,9 @@ function ensureLoadingToast() {
   return toast;
 }
 
-elements.refreshBtn.addEventListener("click", runScreener);
+elements.refreshBtn.addEventListener("click", () => runScreener("cache"));
+elements.rescoreBtn.addEventListener("click", () => runScreener("rescore"));
+elements.forceRefreshBtn.addEventListener("click", () => runScreener("force"));
 elements.modeButtons.forEach((button) => {
   button.addEventListener("click", () => setAnalysisMode(button.dataset.mode));
 });

@@ -67,7 +67,7 @@ http://192.168.1.23:8000/
 
 1. 啟動網站。
 2. 打開首頁。
-3. 點擊 `更新資料`，讓系統抓取正式市場資料並重新評分。
+3. 點擊 `更新資料`，讓系統抓取正式市場資料並重新評分；若今天已更新過，會直接使用本機快取加速。
 4. 在首頁切換 `短線`、`波段`、`長線` 模式，查看不同週期的候選名單。
 5. 在候選清單中點選股票查看摘要分析。
 6. 點擊 `完整圖表` 開啟獨立個股分析頁，也可在該頁快速加入持股觀察。
@@ -75,6 +75,12 @@ http://192.168.1.23:8000/
 8. 到 AI 頁選股票或帶入持股，讓 Ollama 產生分析。
 
 若資料來源暫時抓不到資料，系統不會自動載入示範資料；畫面會保留目前正式資料或顯示更新失敗訊息。
+
+首頁資料更新按鈕：
+
+- `更新資料`：智慧更新。今天已更新過正式資料時直接使用本機快取重新評分，沒有今日快取才抓 API。
+- `重新評分`：只使用本機資料重新計算分數，不抓取任何外部 API。
+- `強制更新`：忽略今日快取，重新抓取市場資料；適合你確認資料源已更新後手動刷新。
 
 ## 功能概覽
 
@@ -94,6 +100,7 @@ http://192.168.1.23:8000/
 - 本地規則模型偏多、中性、偏空機率
 - 近期新聞與公告摘要
 - 依模式切換的策略回測
+- 同日快取、快速重新評分與強制更新
 
 三種模式重點：
 
@@ -296,6 +303,24 @@ Invoke-RestMethod -Method Post `
   -Uri http://127.0.0.1:8000/api/screener/run `
   -ContentType application/json `
   -Body '{"mode":"manual","analysis_mode":"swing"}'
+```
+
+只用本機資料重新評分：
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:8000/api/screener/run `
+  -ContentType application/json `
+  -Body '{"mode":"rescore","analysis_mode":"swing","rescore_only":true}'
+```
+
+忽略今日快取並強制重抓：
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:8000/api/screener/run `
+  -ContentType application/json `
+  -Body '{"mode":"manual","analysis_mode":"swing","force_refresh":true}'
 ```
 
 ### 單檔股票

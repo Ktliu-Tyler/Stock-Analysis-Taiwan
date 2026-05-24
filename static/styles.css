@@ -1604,6 +1604,10 @@ footer {
     padding: 0 10px;
   }
 
+  .actions .danger {
+    grid-column: 1 / -1;
+  }
+
   .modeSwitch {
     display: flex;
     grid-template-columns: none;
