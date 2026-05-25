@@ -17,6 +17,7 @@ const elements = {
   scanStatus: document.querySelector("#scanStatus"),
   scannedCount: document.querySelector("#scannedCount"),
   matchedCount: document.querySelector("#matchedCount"),
+  unmatchedCount: document.querySelector("#unmatchedCount"),
   failedCount: document.querySelector("#failedCount"),
   currentScanText: document.querySelector("#currentScanText"),
   resultMeta: document.querySelector("#resultMeta"),
@@ -49,7 +50,7 @@ function scanConfig() {
 async function startScan() {
   elements.startScanBtn.disabled = true;
   elements.technicalRows.innerHTML = `<tr><td colspan="9">正在建立直接 API 掃描工作</td></tr>`;
-  updateProgress({ status: "queued", progress: { scanned: 0, total: 0, matched: 0, failed: 0, current: "" }, results: [] });
+  updateProgress({ status: "queued", progress: { scanned: 0, total: 0, matched: 0, unmatched: 0, failed: 0, current: "" }, results: [] });
   try {
     const job = await fetchJson("/api/technical-scanner/run", {
       method: "POST",
@@ -93,11 +94,13 @@ function updateProgress(job) {
   const total = Number(progress.total || 0);
   const matched = Number(progress.matched || (job.results || []).length || 0);
   const failed = Number(progress.failed || 0);
+  const unmatched = Number(progress.unmatched ?? Math.max(0, scanned - matched - failed));
   const ratio = total ? Math.min(100, Math.round((scanned / total) * 100)) : 0;
   elements.progressBar.style.width = `${ratio}%`;
   elements.scanStatus.textContent = statusLabel(job.status || "queued");
   elements.scannedCount.textContent = `${scanned} / ${total}`;
   elements.matchedCount.textContent = matched.toString();
+  elements.unmatchedCount.textContent = unmatched.toString();
   elements.failedCount.textContent = failed.toString();
   elements.currentScanText.textContent = progress.current
     ? `正在掃描：${progress.current}`

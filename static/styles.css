@@ -439,7 +439,7 @@ textarea {
 
 .scanStatGrid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(110px, 1fr));
+  grid-template-columns: repeat(5, minmax(110px, 1fr));
   gap: 8px;
   margin-top: 10px;
 }
@@ -452,6 +452,13 @@ textarea {
   margin-top: 8px;
   color: var(--muted);
   font-size: 13px;
+  font-weight: 650;
+}
+
+.scanLegend {
+  margin-top: 5px;
+  color: var(--muted-2);
+  font-size: 12px;
   font-weight: 650;
 }
 

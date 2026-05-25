@@ -10,13 +10,14 @@
 - 新增 `technical-scan.html` 直接 API 技術掃描分頁，不使用本機快取結果，逐檔抓日線資料尋找 MACD 利空減弱與 KDJ 將金叉未金叉。
 - 新增 `/api/technical-scanner/run` 與 `/api/technical-scanner/jobs/{job_id}`，以背景工作回報直接 API 掃描進度。
 - 直接 API 技術掃描回傳 `data_policy=direct_api_only`，並以測試確保不讀寫本機市場資料。
+- 技術掃描進度拆分 `未符合` 與 `資料失敗`，避免把條件不成立誤解為 API 失敗。
 - 新增日線自訂篩選模式：「MACD空頭減弱 + KDJ將金叉」。
 - 新增 MACD series 與 KDJ series 計算，讓系統可以判斷最近多根日線的變化，而不是只看最新一根。
 - 在評分模型加入 `daily_pattern` 與 `filter_flags`，完整成立時標示 `daily_macd_kdj_reversal_setup`。
 - 首頁仍會顯示「日線轉折」標籤，精準型態掃描移到獨立直接 API 分頁。
 - API 支援 `setup_pattern=daily_macd_kdj_reversal`，也支援 `macd_bearish_weakening=1` 與 `kdj_pre_golden_cross=1` 單獨篩選。
 - 更新測試，覆蓋指標 series、一組日線轉折樣本、評分輸出與後端篩選。
-- 已執行 `venv\Scripts\python.exe -m unittest discover -s tests`：19 tests 通過。
+- 已執行 `venv\Scripts\python.exe -m unittest discover -s tests`：20 tests 通過。
 - 已執行 `venv\Scripts\python.exe -m compileall app`：通過。
 - 已執行 `node --check static\app.js static\technical-scan.js static\stock.js static\ai.js static\portfolio.js`：通過。
 - 已執行 `scripts\secret_scan.py` 與 `scripts\integrity_check.py`：通過。

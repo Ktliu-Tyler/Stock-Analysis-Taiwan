@@ -357,7 +357,7 @@ $job = Invoke-RestMethod -Method Post `
 Invoke-RestMethod "http://127.0.0.1:8000/api/technical-scanner/jobs/$($job.job_id)"
 ```
 
-`limit=0` 代表掃描 API 股票清單中的全部股票；全市場逐檔抓歷史日線會較久，也可能受 API 額度影響。此流程回傳 `data_policy=direct_api_only`，不讀取也不寫入本機 SQLite 市場資料。
+`limit=0` 代表掃描 API 股票清單中的全部股票；全市場逐檔抓歷史日線會較久，也可能受 API 額度影響。此流程回傳 `data_policy=direct_api_only`，不讀取也不寫入本機 SQLite 市場資料。`failed` / `資料失敗` 代表 API 取不到、日線資料不足或解析失敗；成功取得資料但條件不成立會計入 `unmatched` / `未符合`。
 
 手動更新資料：
 

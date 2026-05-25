@@ -280,8 +280,38 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(payload["data_policy"], "direct_api_only")
             self.assertFalse(payload["uses_local_market_data"])
             self.assertEqual(payload["scanned"], 2)
+            self.assertEqual(payload["unmatched"], 1)
+            self.assertEqual(payload["failed"], 0)
             self.assertEqual([item["stock_id"] for item in payload["results"]], ["1111"])
             self.assertEqual(storage.get_stocks(), [])
+
+    def test_direct_api_technical_scan_progress_splits_unmatched_and_failed(self):
+        service = ScreenerService(client=TechnicalScanClient())
+        progress_events = []
+        payload = service.technical_scan_direct(
+            {
+                "market": "all",
+                "require_macd_bearish_weakening": True,
+                "require_kdj_pre_golden_cross": True,
+                "bollinger_mode": "all",
+            },
+            progress_callback=lambda scanned, total, matched, failed, current, results: progress_events.append(
+                {
+                    "scanned": scanned,
+                    "total": total,
+                    "matched": matched,
+                    "unmatched": max(0, scanned - matched - failed),
+                    "failed": failed,
+                    "current": current,
+                    "results": [item["stock_id"] for item in results],
+                }
+            ),
+        )
+        self.assertEqual(payload["unmatched"], 1)
+        self.assertEqual(progress_events[-1]["matched"], 1)
+        self.assertEqual(progress_events[-1]["unmatched"], 1)
+        self.assertEqual(progress_events[-1]["failed"], 0)
+        self.assertEqual(progress_events[-1]["results"], ["1111"])
 
     def test_direct_api_technical_scan_never_reads_or_writes_storage(self):
         with tempfile.TemporaryDirectory() as tmp:

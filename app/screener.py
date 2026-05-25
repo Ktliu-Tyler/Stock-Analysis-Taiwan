@@ -431,7 +431,7 @@ class ScreenerService:
             "uses_local_market_data": False,
             "created_at": datetime.now().isoformat(timespec="seconds"),
             "updated_at": datetime.now().isoformat(timespec="seconds"),
-            "progress": {"scanned": 0, "total": 0, "matched": 0, "failed": 0, "current": ""},
+            "progress": {"scanned": 0, "total": 0, "matched": 0, "unmatched": 0, "failed": 0, "current": ""},
             "config": self._normalize_technical_scan_config(config or {}),
             "results": [],
             "errors": [],
@@ -459,22 +459,27 @@ class ScreenerService:
         total = len(universe)
         results: list[dict[str, Any]] = []
         errors: list[dict[str, str]] = []
+        if progress_callback:
+            progress_callback(0, total, 0, 0, "", [])
         for index, stock in enumerate(universe, start=1):
             if progress_callback:
-                progress_callback(index - 1, total, len(results), len(errors), f"{stock.stock_id} {stock.name}")
+                progress_callback(index - 1, total, len(results), len(errors), f"{stock.stock_id} {stock.name}", results)
             try:
                 prices = self.client.get_prices(stock.stock_id, days=int(config["days"]))
                 if len(prices) < 35:
                     errors.append({"stock_id": stock.stock_id, "message": "日線資料不足"})
-                    continue
-                result = self._scan_stock_technical_pattern(stock, prices, config)
-                if result:
-                    results.append(result)
+                else:
+                    result = self._scan_stock_technical_pattern(stock, prices, config)
+                    if result:
+                        results.append(result)
             except Exception as exc:
                 errors.append({"stock_id": stock.stock_id, "message": str(exc)})
+            if progress_callback:
+                progress_callback(index, total, len(results), len(errors), "", results)
         results.sort(key=lambda item: (item["pattern_score"], item["technical_score"]), reverse=True)
         if progress_callback:
-            progress_callback(total, total, len(results), len(errors), "")
+            progress_callback(total, total, len(results), len(errors), "", results)
+        unmatched = max(0, total - len(results) - len(errors))
         return {
             "source": "api",
             "data_policy": "direct_api_only",
@@ -483,6 +488,7 @@ class ScreenerService:
             "run_at": datetime.now().isoformat(timespec="seconds"),
             "count": len(results),
             "scanned": total,
+            "unmatched": unmatched,
             "failed": len(errors),
             "config": config,
             "results": results,
@@ -625,18 +631,33 @@ class ScreenerService:
             job["message"] = "正在直接從 API 抓取股票清單與日線資料。"
             config = dict(job["config"])
 
-        def progress(scanned: int, total: int, matched: int, failed: int, current: str) -> None:
+        def progress(
+            scanned: int,
+            total: int,
+            matched: int,
+            failed: int,
+            current: str,
+            partial_results: list[dict[str, Any]] | None = None,
+        ) -> None:
             with self._technical_scan_lock:
                 current_job = self._technical_scan_jobs.get(job_id)
                 if not current_job:
                     return
+                unmatched = max(0, scanned - matched - failed)
                 current_job["progress"] = {
                     "scanned": scanned,
                     "total": total,
                     "matched": matched,
+                    "unmatched": unmatched,
                     "failed": failed,
                     "current": current,
                 }
+                if partial_results is not None:
+                    current_job["results"] = sorted(
+                        partial_results,
+                        key=lambda item: (item["pattern_score"], item["technical_score"]),
+                        reverse=True,
+                    )
                 current_job["updated_at"] = datetime.now().isoformat(timespec="seconds")
 
         try:
@@ -649,6 +670,7 @@ class ScreenerService:
                     "scanned": payload["scanned"],
                     "total": payload["scanned"],
                     "matched": payload["count"],
+                    "unmatched": payload["unmatched"],
                     "failed": payload["failed"],
                     "current": "",
                 }

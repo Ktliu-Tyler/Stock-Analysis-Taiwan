@@ -86,9 +86,11 @@
         <div class="metric"><span>狀態</span><strong id="scanStatus">待命</strong></div>
         <div class="metric"><span>已掃描</span><strong id="scannedCount">0 / 0</strong></div>
         <div class="metric"><span>符合</span><strong id="matchedCount">0</strong></div>
-        <div class="metric"><span>失敗</span><strong id="failedCount">0</strong></div>
+        <div class="metric"><span>未符合</span><strong id="unmatchedCount">0</strong></div>
+        <div class="metric"><span>資料失敗</span><strong id="failedCount">0</strong></div>
       </div>
       <p id="currentScanText">按下開始後會直接從 API 抓取資料，不使用本機快取結果。</p>
+      <p class="scanLegend">資料失敗代表 API 取不到、日線資料不足或資料解析失敗；未符合代表已成功取得資料，但 KDJ / MACD / 布林條件不成立。</p>
     </section>
 
     <main class="technicalLayout">
