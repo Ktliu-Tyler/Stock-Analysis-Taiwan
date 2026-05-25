@@ -119,22 +119,23 @@ node --check static\stock.js
 
 ## GitHub 發布流程
 
-目前本機尚未初始化 git repo，也沒有 GitHub CLI `gh`，所以先完成本地檔案與流程。等你準備上傳時：
+目前已連接遠端 repo：`Ktliu-Tyler/Stock-Analysis-Taiwan`。
+
+因為本機尚未安裝 GitHub CLI `gh`，目前採用一般 git push 流程：
 
 ```powershell
-git init
-git add .gitignore .env.example README.md config.py main.py report_generator.py scorer.py daily_agent.py analysis fetchers scripts docs .github reports/.gitkeep requirements.txt
-git commit -m "Add daily stock report agent workflow"
-git branch -M main
-git remote add origin <你的 GitHub repo URL>
+venv\Scripts\python.exe scripts\secret_scan.py
+git status --short
+git add <本次要提交的檔案>
+git commit -m "<本次變更摘要>"
 git push -u origin main
 ```
 
-如果安裝 `gh`，也可以：
+若未來安裝 `gh`，可改用 GitHub CLI 建立 PR 或管理 repo：
 
 ```powershell
 gh auth login
-gh repo create taiwan_stock_scanner --private --source . --remote origin --push
+gh pr create --draft --fill
 ```
 
 ## GitHub Secrets / Variables
