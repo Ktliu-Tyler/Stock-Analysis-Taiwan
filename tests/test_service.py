@@ -112,6 +112,14 @@ class TechnicalScanClient:
         ]
 
 
+class GuardedStorage:
+    def __init__(self, db_path: Path):
+        self.db_path = db_path
+
+    def __getattr__(self, name):
+        raise AssertionError(f"technical scan must not touch local storage: {name}")
+
+
 class ServiceTests(unittest.TestCase):
     def test_demo_run_and_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -256,7 +264,8 @@ class ServiceTests(unittest.TestCase):
 
     def test_direct_api_technical_scan_uses_client_not_local_scores(self):
         with tempfile.TemporaryDirectory() as tmp:
-            storage = Storage(Path(tmp) / "test.sqlite")
+            storage_path = Path(tmp) / "test.sqlite"
+            storage = Storage(storage_path)
             service = ScreenerService(storage=storage, client=TechnicalScanClient())
             payload = service.technical_scan_direct(
                 {
@@ -268,9 +277,25 @@ class ServiceTests(unittest.TestCase):
                 }
             )
             self.assertEqual(payload["source"], "api")
+            self.assertEqual(payload["data_policy"], "direct_api_only")
+            self.assertFalse(payload["uses_local_market_data"])
             self.assertEqual(payload["scanned"], 2)
             self.assertEqual([item["stock_id"] for item in payload["results"]], ["1111"])
             self.assertEqual(storage.get_stocks(), [])
+
+    def test_direct_api_technical_scan_never_reads_or_writes_storage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            service = ScreenerService(storage=GuardedStorage(Path(tmp) / "guard.sqlite"), client=TechnicalScanClient())
+            payload = service.technical_scan_direct(
+                {
+                    "market": "all",
+                    "require_macd_bearish_weakening": True,
+                    "require_kdj_pre_golden_cross": True,
+                    "bollinger_mode": "all",
+                }
+            )
+            self.assertEqual(payload["data_policy"], "direct_api_only")
+            self.assertEqual([item["stock_id"] for item in payload["results"]], ["1111"])
 
 
 if __name__ == "__main__":

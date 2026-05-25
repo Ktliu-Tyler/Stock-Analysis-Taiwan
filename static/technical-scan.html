@@ -22,11 +22,12 @@
     <section class="scannerHero">
       <div>
         <h2>日線轉折預備</h2>
-        <p>從 API 直接抓股票清單與歷史日線，尋找 MACD 利空減弱、KDJ 即將黃金交叉但尚未交叉的股票，並把布林位置一起列入判讀。</p>
+        <p>從 API 直接抓股票清單與歷史日線，不讀取也不寫入本機 SQLite 市場資料，尋找 MACD 利空減弱、KDJ 即將黃金交叉但尚未交叉的股票，並把布林位置一起列入判讀。</p>
       </div>
       <div class="scannerFacts">
         <span>來源：直接 API</span>
         <span>週期：日線</span>
+        <span>不使用本機快取</span>
         <span>核心：KDJ / MACD / BBAND</span>
       </div>
     </section>

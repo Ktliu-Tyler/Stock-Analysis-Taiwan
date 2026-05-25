@@ -105,7 +105,7 @@ function updateProgress(job) {
   const results = job.results || [];
   elements.resultMeta.textContent = job.status === "completed" ? `${results.length} 檔符合條件` : `目前 ${results.length} 檔符合`;
   elements.scanMeta.textContent = job.universe_source
-    ? `直接 API · ${job.universe_source} · ${job.run_at || ""}`
+    ? `直接 API · ${job.data_policy || "direct_api_only"} · ${job.universe_source} · ${job.run_at || ""}`
     : "直接 API 掃描日線 KDJ、MACD、布林訊號";
   renderRows(results);
 }

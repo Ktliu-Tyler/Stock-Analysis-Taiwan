@@ -93,7 +93,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\create_desktop_shortcuts.ps1
 3. 確認 `MACD 利空減弱` 與 `KDJ 將金叉未金叉` 已勾選。
 4. 按下 `開始直接 API 掃描`。
 
-此分頁不使用本機快取結果，會直接透過 API 抓股票清單與日線資料。`掃描上限` 選 `全部` 時會逐檔抓取全部 API 股票，時間會比較長。
+此分頁不使用本機快取結果，會直接透過 API 抓股票清單與日線資料。後端回傳 `data_policy=direct_api_only`，不讀取也不寫入本機 SQLite 市場資料。`掃描上限` 選 `全部` 時會逐檔抓取全部 API 股票，時間會比較長。
 
 首頁快取篩選 API 仍可使用：
 

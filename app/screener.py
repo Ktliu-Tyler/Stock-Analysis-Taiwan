@@ -427,6 +427,8 @@ class ScreenerService:
             "job_id": job_id,
             "status": "queued",
             "source": "api",
+            "data_policy": "direct_api_only",
+            "uses_local_market_data": False,
             "created_at": datetime.now().isoformat(timespec="seconds"),
             "updated_at": datetime.now().isoformat(timespec="seconds"),
             "progress": {"scanned": 0, "total": 0, "matched": 0, "failed": 0, "current": ""},
@@ -475,6 +477,8 @@ class ScreenerService:
             progress_callback(total, total, len(results), len(errors), "")
         return {
             "source": "api",
+            "data_policy": "direct_api_only",
+            "uses_local_market_data": False,
             "universe_source": universe_source,
             "run_at": datetime.now().isoformat(timespec="seconds"),
             "count": len(results),
@@ -651,6 +655,8 @@ class ScreenerService:
                 job["results"] = payload["results"]
                 job["errors"] = payload["errors"]
                 job["message"] = payload["message"]
+                job["data_policy"] = payload["data_policy"]
+                job["uses_local_market_data"] = payload["uses_local_market_data"]
                 job["universe_source"] = payload["universe_source"]
                 job["run_at"] = payload["run_at"]
         except Exception as exc:
