@@ -15,11 +15,50 @@
 
 ## 快速啟動
 
+本機主專案路徑是：
+
+```text
+D:\taiwan_stock_scanner
+```
+
+`D:\stock` 是舊的本機工作目錄，後續請以 `D:\taiwan_stock_scanner` 為準。
+
+### 桌面捷徑啟動
+
+桌面會建立兩個捷徑：
+
+- `Stock Scanner Start`：啟動本機服務並開啟瀏覽器。
+- `Stock Scanner Stop`：停止本機 `8000` port 上的台股分析服務。
+
+啟動後會出現一個 PowerShell 視窗，請保持開啟。要關閉服務時，在該視窗按 `Ctrl+C`，或雙擊桌面的 `Stock Scanner Stop`。
+
+若要重新建立桌面捷徑：
+
+```powershell
+cd D:\taiwan_stock_scanner
+powershell -ExecutionPolicy Bypass -File .\scripts\create_desktop_shortcuts.ps1
+```
+
+### Python 環境
+
+第一次使用或換新電腦時，先建立虛擬環境並安裝套件：
+
+```powershell
+cd D:\taiwan_stock_scanner
+python -m venv venv
+venv\Scripts\python.exe -m pip install --upgrade pip
+venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+私密設定請放在 `.env` 或 GitHub Secrets，不要寫進 README、程式碼或提交到 GitHub。`.env.example` 只保留範例欄位。
+
+### 手動啟動
+
 在 Windows PowerShell 執行：
 
 ```powershell
-cd D:\stock
-python run_app.py --host 127.0.0.1 --port 8000
+cd D:\taiwan_stock_scanner
+venv\Scripts\python.exe run_app.py --host 127.0.0.1 --port 8000
 ```
 
 開啟首頁：
@@ -33,14 +72,14 @@ http://127.0.0.1:8000/
 如果要從手機開啟，伺服器不能只綁定 `127.0.0.1`，因為那只允許目前這台電腦自己連線。請改用區網模式啟動：
 
 ```powershell
-cd D:\stock
+cd D:\taiwan_stock_scanner
 .\start_lan.ps1
 ```
 
 或手動執行：
 
 ```powershell
-python run_app.py --host 0.0.0.0 --port 8000
+venv\Scripts\python.exe run_app.py --host 0.0.0.0 --port 8000
 ```
 
 啟動後終端機會印出類似下面的區網網址，手機請開這個網址：
@@ -226,7 +265,7 @@ Windows PowerShell 啟動網站時可設定：
 ```powershell
 $env:OLLAMA_MODEL="qwen3:4b"
 $env:OLLAMA_TIMEOUT="360"
-python run_app.py --host 127.0.0.1 --port 8000
+venv\Scripts\python.exe run_app.py --host 127.0.0.1 --port 8000
 ```
 
 若 AI 分析仍 timeout，可以改成：
@@ -271,7 +310,7 @@ data/tw_stock_screener.sqlite
 
 ```powershell
 $env:TW_STOCK_WATCHLIST="2330,2317,2454,2382"
-python run_app.py --host 127.0.0.1 --port 8000
+venv\Scripts\python.exe run_app.py --host 127.0.0.1 --port 8000
 ```
 
 ## API

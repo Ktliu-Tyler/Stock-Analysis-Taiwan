@@ -4,6 +4,14 @@
 
 ## 開發前檢查
 
+主專案路徑：
+
+```powershell
+cd D:\taiwan_stock_scanner
+```
+
+`D:\stock` 是舊的本機工作目錄，後續開發、測試與上傳 GitHub 都以 `D:\taiwan_stock_scanner` 為準。
+
 1. 確認目前沒有要上傳的私密檔：
 
 ```powershell
@@ -55,6 +63,26 @@ venv\Scripts\python.exe daily_agent.py --sample --send-line
 ```powershell
 venv\Scripts\python.exe daily_agent.py --stocks 2330 2317 2454 --dry-run
 ```
+
+## 桌面啟動與停止
+
+建立或更新桌面捷徑：
+
+```powershell
+cd D:\taiwan_stock_scanner
+powershell -ExecutionPolicy Bypass -File .\scripts\create_desktop_shortcuts.ps1
+```
+
+桌面會有：
+
+- `Stock Scanner Start`：切到 `D:\taiwan_stock_scanner`，使用 `venv\Scripts\python.exe` 啟動 `run_app.py`，並開啟 `http://127.0.0.1:8000/`。
+- `Stock Scanner Stop`：停止本機 `8000` port 上的 Python 服務。
+
+手動停止方式：
+
+- 在啟動視窗按 `Ctrl+C`。
+- 或直接關閉啟動用的 PowerShell 視窗。
+- 或雙擊桌面的 `Stock Scanner Stop`。
 
 ## 使用日線自訂篩選
 

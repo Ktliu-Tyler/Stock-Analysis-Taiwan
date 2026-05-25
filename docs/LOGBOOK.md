@@ -2,6 +2,11 @@
 
 ## 2026-05-25
 
+- 釐清本機主專案路徑為 `D:\taiwan_stock_scanner`，`D:\stock` 是舊工作目錄。
+- 更新 README 與工作流程文件，將執行說明改為 `D:\taiwan_stock_scanner` 與 `venv\Scripts\python.exe`。
+- 新增桌面捷徑建立腳本，產生 `Stock Scanner Start` 與 `Stock Scanner Stop`。
+- 新增 `scripts/start_stock_scanner.ps1` 與 `scripts/stop_stock_scanner.ps1`，讓桌面啟動與停止流程固定指向正確專案。
+- 更新 `start_lan.ps1`，優先使用專案虛擬環境的 Python。
 - 新增日線自訂篩選模式：「MACD空頭減弱 + KDJ將金叉」。
 - 新增 MACD series 與 KDJ series 計算，讓系統可以判斷最近多根日線的變化，而不是只看最新一根。
 - 在評分模型加入 `daily_pattern` 與 `filter_flags`，完整成立時標示 `daily_macd_kdj_reversal_setup`。
