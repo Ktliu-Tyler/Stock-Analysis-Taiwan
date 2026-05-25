@@ -57,7 +57,7 @@ flowchart LR
 
 使用方式：
 
-- Web 介面：首頁篩選列的「日線型態」選擇「MACD空頭減弱 + KDJ將金叉」。
+- Web 介面：開啟 `technical-scan.html`，使用「直接 API 技術掃描」尋找「MACD空頭減弱 + KDJ將金叉」。
 - API：`/api/screener/today?setup_pattern=daily_macd_kdj_reversal`
 - 單獨條件：`macd_bearish_weakening=1` 或 `kdj_pre_golden_cross=1`
 

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>技術型態掃描</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>技術型態掃描</h1>
+        <p id="scanMeta">直接 API 掃描日線 KDJ、MACD、布林訊號</p>
+      </div>
+      <div class="actions">
+        <a class="buttonLink secondary" href="/">返回總覽</a>
+        <a class="buttonLink secondary" href="/portfolio.html">持股紀錄</a>
+        <a class="buttonLink secondary" href="/ai.html">AI 分析</a>
+      </div>
+    </header>
+
+    <section class="scannerHero">
+      <div>
+        <h2>日線轉折預備</h2>
+        <p>從 API 直接抓股票清單與歷史日線，尋找 MACD 利空減弱、KDJ 即將黃金交叉但尚未交叉的股票，並把布林位置一起列入判讀。</p>
+      </div>
+      <div class="scannerFacts">
+        <span>來源：直接 API</span>
+        <span>週期：日線</span>
+        <span>核心：KDJ / MACD / BBAND</span>
+      </div>
+    </section>
+
+    <section class="filters technicalFilters" aria-label="技術掃描條件">
+      <label>
+        市場
+        <select id="marketSelect">
+          <option value="all">全部 API 股票</option>
+          <option value="twse">上市</option>
+          <option value="tpex">上櫃</option>
+        </select>
+      </label>
+      <label>
+        掃描上限
+        <select id="limitSelect">
+          <option value="0">全部</option>
+          <option value="50">前 50 檔</option>
+          <option value="100">前 100 檔</option>
+          <option value="300">前 300 檔</option>
+        </select>
+      </label>
+      <label>
+        日線天數
+        <input id="daysInput" type="number" min="80" max="260" value="180" />
+      </label>
+      <label>
+        最低成交量
+        <input id="minVolumeInput" type="number" min="0" step="100000" value="0" />
+      </label>
+      <label>
+        布林條件
+        <select id="bollingerModeSelect">
+          <option value="all">不限制，僅顯示位置</option>
+          <option value="lower_half">中下緣</option>
+          <option value="lower_rebound">下緣回升</option>
+          <option value="squeeze">通道收斂</option>
+        </select>
+      </label>
+      <label class="check">
+        <input id="macdWeakeningCheck" type="checkbox" checked />
+        MACD 利空減弱
+      </label>
+      <label class="check">
+        <input id="kdjPreCrossCheck" type="checkbox" checked />
+        KDJ 將金叉未金叉
+      </label>
+      <button id="startScanBtn" type="button">開始直接 API 掃描</button>
+    </section>
+
+    <section class="scanSummary" aria-live="polite">
+      <div class="progressShell">
+        <div id="progressBar" class="progressBar"></div>
+      </div>
+      <div class="scanStatGrid">
+        <div class="metric"><span>狀態</span><strong id="scanStatus">待命</strong></div>
+        <div class="metric"><span>已掃描</span><strong id="scannedCount">0 / 0</strong></div>
+        <div class="metric"><span>符合</span><strong id="matchedCount">0</strong></div>
+        <div class="metric"><span>失敗</span><strong id="failedCount">0</strong></div>
+      </div>
+      <p id="currentScanText">按下開始後會直接從 API 抓取資料，不使用本機快取結果。</p>
+    </section>
+
+    <main class="technicalLayout">
+      <section class="listPanel technicalResultsPanel">
+        <div class="panelHead">
+          <h2>符合型態股票</h2>
+          <span id="resultMeta">尚未掃描</span>
+        </div>
+        <div class="tableWrap">
+          <table class="technicalTable">
+            <thead>
+              <tr>
+                <th>股票</th>
+                <th>分數</th>
+                <th>收盤</th>
+                <th>K / D / Gap</th>
+                <th>MACD Hist</th>
+                <th>布林 %B</th>
+                <th>量比</th>
+                <th>理由</th>
+                <th>日期</th>
+              </tr>
+            </thead>
+            <tbody id="technicalRows">
+              <tr><td colspan="9">尚未掃描</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer>直接 API 全市場掃描可能需要較長時間，也可能受到資料源額度與連線穩定度影響。</footer>
+    <script src="/technical-scan.js"></script>
+  </body>
+</html>

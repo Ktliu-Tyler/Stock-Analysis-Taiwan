@@ -30,7 +30,6 @@ const elements = {
   sentimentFilter: document.querySelector("#sentimentFilter"),
   riskScoreFilter: document.querySelector("#riskScoreFilter"),
   modelConfidenceFilter: document.querySelector("#modelConfidenceFilter"),
-  setupPatternFilter: document.querySelector("#setupPatternFilter"),
   flowFilter: document.querySelector("#flowFilter"),
   riskFilter: document.querySelector("#riskFilter"),
   maFilter: document.querySelector("#maFilter"),
@@ -86,7 +85,6 @@ function params() {
   query.set("min_sentiment", elements.sentimentFilter.value || "0");
   query.set("min_risk", elements.riskScoreFilter.value || "0");
   query.set("min_model_confidence", elements.modelConfidenceFilter.value || "0");
-  query.set("setup_pattern", elements.setupPatternFilter.value || "all");
   query.set("foreign_or_trust_only", elements.flowFilter.checked ? "1" : "0");
   query.set("exclude_high_risk", elements.riskFilter.checked ? "1" : "0");
   query.set("ma_bullish", elements.maFilter.checked ? "1" : "0");
@@ -617,7 +615,6 @@ elements.modeButtons.forEach((button) => {
   elements.sentimentFilter,
   elements.riskScoreFilter,
   elements.modelConfidenceFilter,
-  elements.setupPatternFilter,
   elements.flowFilter,
   elements.riskFilter,
   elements.maFilter,

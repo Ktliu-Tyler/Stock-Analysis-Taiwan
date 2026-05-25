@@ -13,6 +13,7 @@
         <p id="runMeta">載入中</p>
       </div>
       <div class="actions">
+        <a class="buttonLink secondary" href="/technical-scan.html">技術掃描</a>
         <a class="buttonLink secondary" href="/portfolio.html">持股紀錄</a>
         <a class="buttonLink secondary" href="/ai.html">AI 分析</a>
         <button id="rescoreBtn" class="secondary" type="button" title="只用本機資料重新計算分數，不抓 API">重新評分</button>
@@ -91,13 +92,6 @@
       <label>
         模型信心
         <input id="modelConfidenceFilter" type="number" min="0" max="100" value="0" />
-      </label>
-      <label>
-        日線型態
-        <select id="setupPatternFilter">
-          <option value="all">全部</option>
-          <option value="daily_macd_kdj_reversal">MACD空頭減弱 + KDJ將金叉</option>
-        </select>
       </label>
       <label class="check">
         <input id="flowFilter" type="checkbox" />

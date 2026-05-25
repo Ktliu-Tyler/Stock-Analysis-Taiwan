@@ -73,6 +73,9 @@ body {
 .portfolioLayout,
 .portfolioSummary,
 .portfolioGroups,
+.scannerHero,
+.scanSummary,
+.technicalLayout,
 .backtestPanel,
 footer {
   width: min(1480px, calc(100vw - 32px));
@@ -360,6 +363,129 @@ textarea {
   grid-template-columns: minmax(300px, 0.36fr) minmax(680px, 0.64fr);
   gap: 14px;
   margin-top: 14px;
+}
+
+.scannerHero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 4px;
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: rgba(16, 24, 33, 0.92);
+  box-shadow: var(--shadow);
+}
+
+.scannerHero p {
+  max-width: 780px;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.scannerFacts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.scannerFacts span,
+.reasonPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border: 1px solid rgba(120, 183, 255, 0.28);
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: rgba(120, 183, 255, 0.08);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.technicalFilters {
+  grid-template-columns: repeat(8, minmax(118px, 1fr));
+}
+
+.scanSummary {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgba(16, 24, 33, 0.92);
+  box-shadow: var(--shadow);
+}
+
+.progressShell {
+  height: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #0c131c;
+}
+
+.progressBar {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--teal));
+  transition: width 0.24s ease;
+}
+
+.scanStatGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(110px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.scanStatGrid .metric {
+  min-height: 62px;
+}
+
+#currentScanText {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.technicalLayout {
+  margin-top: 14px;
+}
+
+.technicalResultsPanel {
+  min-width: 0;
+}
+
+.technicalTable {
+  min-width: 1220px;
+}
+
+.stockCellLink {
+  display: grid;
+  gap: 2px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.stockCellLink span,
+.mutedText {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.reasonList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  max-width: 520px;
+  white-space: normal;
 }
 
 .stockWorkspace {
@@ -1504,13 +1630,15 @@ footer {
   .stockWorkspace,
   .aiLayout,
   .portfolioLayout,
+  .scannerHero,
   .sellEditor,
   .decisionBlock,
   .breakdownGrid {
     grid-template-columns: 1fr;
   }
 
-  .filters {
+  .filters,
+  .technicalFilters {
     grid-template-columns: repeat(3, minmax(150px, 1fr));
   }
 }
@@ -1543,6 +1671,9 @@ footer {
   .portfolioLayout,
   .portfolioSummary,
   .portfolioGroups,
+  .scannerHero,
+  .scanSummary,
+  .technicalLayout,
   .backtestPanel,
   footer {
     width: min(100vw - 18px, 1480px);
@@ -1564,6 +1695,9 @@ footer {
   .portfolioLayout,
   .portfolioSummary,
   .portfolioGroups,
+  .scannerHero,
+  .scanSummary,
+  .technicalLayout,
   .backtestPanel,
   footer {
     width: min(100vw - 16px, 1480px);
@@ -1644,11 +1778,27 @@ footer {
     line-height: 1.35;
   }
 
-  .filters {
+  .filters,
+  .technicalFilters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     padding: 10px;
     box-shadow: none;
+  }
+
+  .scannerHero {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: none;
+  }
+
+  .scannerFacts {
+    justify-content: flex-start;
+  }
+
+  .scanStatGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   label {
@@ -1690,6 +1840,7 @@ footer {
   .aiOutputPanel,
   .chartPanel,
   .stockSidePanel > .listPanel,
+  .scanSummary,
   .summaryItem,
   .groupCard {
     box-shadow: none;

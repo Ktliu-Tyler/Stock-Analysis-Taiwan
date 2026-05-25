@@ -44,6 +44,14 @@ class StockScreenerHandler(BaseHTTPRequestHandler):
             query.pop("demo", None)
             self._json(service.today_scores(query))
             return
+        if path.startswith("/api/technical-scanner/jobs/"):
+            job_id = unquote(path.split("/")[-1])
+            job = service.get_technical_scan_job(job_id)
+            if not job:
+                self._json({"error": "job_not_found", "job_id": job_id}, HTTPStatus.NOT_FOUND)
+                return
+            self._json(job)
+            return
         if path.startswith("/api/stocks/") and path.endswith("/report"):
             stock_id = unquote(path.split("/")[3])
             self._json(service.stock_report(stock_id, include_demo=False, analysis_mode=query.get("mode") or query.get("analysis_mode") or "short"))
@@ -77,6 +85,9 @@ class StockScreenerHandler(BaseHTTPRequestHandler):
                     rescore_only=rescore_only,
                 )
             )
+            return
+        if parsed.path == "/api/technical-scanner/run":
+            self._json(service.start_technical_scan(self._read_json()))
             return
         if parsed.path == "/api/ai/analyze-stock":
             body = self._read_json()

@@ -98,6 +98,7 @@ http://192.168.1.23:8000/
 主要頁面：
 
 - `http://127.0.0.1:8000/`：候選股票篩選儀表板
+- `http://127.0.0.1:8000/technical-scan.html`：直接 API 技術型態掃描，尋找日線 MACD 利空減弱與 KDJ 即將黃金交叉
 - `http://127.0.0.1:8000/stock.html?id=2330`：個股完整分析與互動價量圖
 - `http://127.0.0.1:8000/portfolio.html`：持股紀錄與損益計算
 - `http://127.0.0.1:8000/ai.html`：Ollama AI 股票與持股分析
@@ -327,6 +328,8 @@ GET /api/health
 GET /api/screener/today
 POST /api/screener/run
 GET /api/backtest
+POST /api/technical-scanner/run
+GET /api/technical-scanner/jobs/{job_id}
 ```
 
 篩選參數範例：
@@ -342,6 +345,19 @@ GET /api/backtest
 ```
 
 這個模式會尋找 MACD histogram 仍在 0 下但空方力道收斂，且 KDJ 的 K 值尚未穿越 D 值、但差距正在縮小的股票。若只想拆開條件，可使用 `macd_bearish_weakening=1` 或 `kdj_pre_golden_cross=1`。
+
+直接 API 技術掃描：
+
+```powershell
+$job = Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:8000/api/technical-scanner/run `
+  -ContentType application/json `
+  -Body '{"market":"all","limit":0,"days":180,"require_macd_bearish_weakening":true,"require_kdj_pre_golden_cross":true,"bollinger_mode":"all"}'
+
+Invoke-RestMethod "http://127.0.0.1:8000/api/technical-scanner/jobs/$($job.job_id)"
+```
+
+`limit=0` 代表掃描 API 股票清單中的全部股票；全市場逐檔抓歷史日線會較久，也可能受 API 額度影響。
 
 手動更新資料：
 

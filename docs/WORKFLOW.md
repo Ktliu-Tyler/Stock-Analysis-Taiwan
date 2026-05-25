@@ -86,11 +86,16 @@ powershell -ExecutionPolicy Bypass -File .\scripts\create_desktop_shortcuts.ps1
 
 ## 使用日線自訂篩選
 
-Web 介面：
+直接 API 掃描分頁：
 
 1. 啟動服務。
-2. 在首頁篩選列找到「日線型態」。
-3. 選擇「MACD空頭減弱 + KDJ將金叉」。
+2. 開啟 `http://127.0.0.1:8000/technical-scan.html`。
+3. 確認 `MACD 利空減弱` 與 `KDJ 將金叉未金叉` 已勾選。
+4. 按下 `開始直接 API 掃描`。
+
+此分頁不使用本機快取結果，會直接透過 API 抓股票清單與日線資料。`掃描上限` 選 `全部` 時會逐檔抓取全部 API 股票，時間會比較長。
+
+首頁快取篩選 API 仍可使用：
 
 API：
 
@@ -103,6 +108,17 @@ Invoke-RestMethod "http://127.0.0.1:8000/api/screener/today?mode=short&setup_pat
 ```powershell
 Invoke-RestMethod "http://127.0.0.1:8000/api/screener/today?macd_bearish_weakening=1"
 Invoke-RestMethod "http://127.0.0.1:8000/api/screener/today?kdj_pre_golden_cross=1"
+```
+
+直接 API 技術掃描 API：
+
+```powershell
+$job = Invoke-RestMethod -Method Post `
+  -Uri http://127.0.0.1:8000/api/technical-scanner/run `
+  -ContentType application/json `
+  -Body '{"market":"all","limit":0,"days":180,"require_macd_bearish_weakening":true,"require_kdj_pre_golden_cross":true,"bollinger_mode":"all"}'
+
+Invoke-RestMethod "http://127.0.0.1:8000/api/technical-scanner/jobs/$($job.job_id)"
 ```
 
 ## 上傳 GitHub 前檢查
@@ -123,6 +139,7 @@ git status --short
 venv\Scripts\python.exe -m unittest discover -s tests
 venv\Scripts\python.exe -m compileall app
 node --check static\app.js
+node --check static\technical-scan.js
 node --check static\ai.js
 node --check static\portfolio.js
 node --check static\stock.js

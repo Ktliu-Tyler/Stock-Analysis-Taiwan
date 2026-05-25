@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from datetime import date
+from datetime import date, datetime
+import threading
 from typing import Any
+from uuid import uuid4
 
 from .backtest import run_backtest
 from .config import DEFAULT_WATCHLIST
 from .data_sources import DataFetchError, MarketDataClient
+from .indicators import bollinger_bands, daily_macd_kdj_reversal_setup, pct_change, sma
 from .fixtures import demo_market
 from .models import InstitutionalFlow, MarginBalance, NewsItem, PriceBar, ScoreResult, Stock
 from .scoring import analysis_mode_options, normalize_analysis_mode, score_stock
@@ -19,6 +22,8 @@ class ScreenerService:
         self._demo_db_path = self.storage.db_path.with_name(f"{self.storage.db_path.stem}.demo{self.storage.db_path.suffix}")
         self._demo_storage: Storage | None = None
         self.client = client or MarketDataClient()
+        self._technical_scan_jobs: dict[str, dict[str, Any]] = {}
+        self._technical_scan_lock = threading.Lock()
 
     @property
     def demo_storage(self) -> Storage:
@@ -416,6 +421,71 @@ class ScreenerService:
             news_by_stock[stock.stock_id] = storage.get_news(stock.stock_id)
         return run_backtest(stocks, prices_by_stock, flows_by_stock, margins_by_stock, news_by_stock, analysis_mode=analysis_mode)
 
+    def start_technical_scan(self, config: dict[str, Any] | None = None) -> dict[str, Any]:
+        job_id = uuid4().hex
+        job = {
+            "job_id": job_id,
+            "status": "queued",
+            "source": "api",
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "updated_at": datetime.now().isoformat(timespec="seconds"),
+            "progress": {"scanned": 0, "total": 0, "matched": 0, "failed": 0, "current": ""},
+            "config": self._normalize_technical_scan_config(config or {}),
+            "results": [],
+            "errors": [],
+            "message": "等待開始直接 API 技術掃描。",
+        }
+        with self._technical_scan_lock:
+            self._technical_scan_jobs[job_id] = job
+
+        thread = threading.Thread(target=self._run_technical_scan_job, args=(job_id,), daemon=True)
+        thread.start()
+        return self.get_technical_scan_job(job_id) or job
+
+    def get_technical_scan_job(self, job_id: str) -> dict[str, Any] | None:
+        with self._technical_scan_lock:
+            job = self._technical_scan_jobs.get(job_id)
+            return dict(job) if job else None
+
+    def technical_scan_direct(
+        self,
+        config: dict[str, Any] | None = None,
+        progress_callback: Any | None = None,
+    ) -> dict[str, Any]:
+        config = self._normalize_technical_scan_config(config or {})
+        universe, universe_source = self._api_technical_universe(config)
+        total = len(universe)
+        results: list[dict[str, Any]] = []
+        errors: list[dict[str, str]] = []
+        for index, stock in enumerate(universe, start=1):
+            if progress_callback:
+                progress_callback(index - 1, total, len(results), len(errors), f"{stock.stock_id} {stock.name}")
+            try:
+                prices = self.client.get_prices(stock.stock_id, days=int(config["days"]))
+                if len(prices) < 35:
+                    errors.append({"stock_id": stock.stock_id, "message": "日線資料不足"})
+                    continue
+                result = self._scan_stock_technical_pattern(stock, prices, config)
+                if result:
+                    results.append(result)
+            except Exception as exc:
+                errors.append({"stock_id": stock.stock_id, "message": str(exc)})
+        results.sort(key=lambda item: (item["pattern_score"], item["technical_score"]), reverse=True)
+        if progress_callback:
+            progress_callback(total, total, len(results), len(errors), "")
+        return {
+            "source": "api",
+            "universe_source": universe_source,
+            "run_at": datetime.now().isoformat(timespec="seconds"),
+            "count": len(results),
+            "scanned": total,
+            "failed": len(errors),
+            "config": config,
+            "results": results,
+            "errors": errors[:20],
+            "message": "直接 API 技術掃描完成。",
+        }
+
     def remove_demo_data(self, clear_market_data: bool = True) -> int:
         demo_stock_ids = [item["stock_id"] for item in DEFAULT_WATCHLIST] if clear_market_data else []
         return self.storage.purge_demo_artifacts(demo_stock_ids)
@@ -541,6 +611,171 @@ class ScreenerService:
         source = (score.data_freshness or "").split(" / ")[0]
         return not source.startswith("local_rescore/") and not source.startswith("local/fallback/")
 
+    def _run_technical_scan_job(self, job_id: str) -> None:
+        with self._technical_scan_lock:
+            job = self._technical_scan_jobs.get(job_id)
+            if not job:
+                return
+            job["status"] = "running"
+            job["updated_at"] = datetime.now().isoformat(timespec="seconds")
+            job["message"] = "正在直接從 API 抓取股票清單與日線資料。"
+            config = dict(job["config"])
+
+        def progress(scanned: int, total: int, matched: int, failed: int, current: str) -> None:
+            with self._technical_scan_lock:
+                current_job = self._technical_scan_jobs.get(job_id)
+                if not current_job:
+                    return
+                current_job["progress"] = {
+                    "scanned": scanned,
+                    "total": total,
+                    "matched": matched,
+                    "failed": failed,
+                    "current": current,
+                }
+                current_job["updated_at"] = datetime.now().isoformat(timespec="seconds")
+
+        try:
+            payload = self.technical_scan_direct(config, progress_callback=progress)
+            with self._technical_scan_lock:
+                job = self._technical_scan_jobs[job_id]
+                job["status"] = "completed"
+                job["updated_at"] = datetime.now().isoformat(timespec="seconds")
+                job["progress"] = {
+                    "scanned": payload["scanned"],
+                    "total": payload["scanned"],
+                    "matched": payload["count"],
+                    "failed": payload["failed"],
+                    "current": "",
+                }
+                job["results"] = payload["results"]
+                job["errors"] = payload["errors"]
+                job["message"] = payload["message"]
+                job["universe_source"] = payload["universe_source"]
+                job["run_at"] = payload["run_at"]
+        except Exception as exc:
+            with self._technical_scan_lock:
+                job = self._technical_scan_jobs[job_id]
+                job["status"] = "failed"
+                job["updated_at"] = datetime.now().isoformat(timespec="seconds")
+                job["message"] = str(exc)
+
+    def _normalize_technical_scan_config(self, config: dict[str, Any]) -> dict[str, Any]:
+        limit = _int_filter(config.get("limit"), 0)
+        days = _int_filter(config.get("days"), 180)
+        return {
+            "market": str(config.get("market") or "all").lower(),
+            "limit": max(0, limit),
+            "days": min(max(days, 80), 260),
+            "require_macd_bearish_weakening": _body_bool(config.get("require_macd_bearish_weakening", True)),
+            "require_kdj_pre_golden_cross": _body_bool(config.get("require_kdj_pre_golden_cross", True)),
+            "bollinger_mode": str(config.get("bollinger_mode") or "all"),
+            "min_volume": max(0.0, _float_filter(str(config.get("min_volume") or ""), 0)),
+        }
+
+    def _api_technical_universe(self, config: dict[str, Any]) -> tuple[list[Stock], str]:
+        market = str(config.get("market") or "all").lower()
+        try:
+            stocks = self.client.get_stock_info()
+            source = "finmind_stock_info"
+        except DataFetchError:
+            stocks = []
+            source = "finmind_stock_info_unavailable"
+        if not stocks:
+            snapshots = self.client.get_twse_latest_snapshot()
+            stocks = [Stock(row["stock_id"], row["name"], "未分類", "twse") for row in snapshots]
+            source = "twse_daily_all_snapshot"
+        stocks = [stock for stock in stocks if _is_common_stock_id(stock.stock_id) and _market_matches(stock.market, market)]
+        stocks.sort(key=lambda item: item.stock_id)
+        limit = int(config.get("limit") or 0)
+        if limit > 0:
+            stocks = stocks[:limit]
+        return stocks, source
+
+    def _scan_stock_technical_pattern(self, stock: Stock, prices: list[PriceBar], config: dict[str, Any]) -> dict[str, Any] | None:
+        prices = sorted(prices, key=lambda item: item.date)
+        highs = [item.high for item in prices]
+        lows = [item.low for item in prices]
+        closes = [item.close for item in prices]
+        volumes = [item.volume for item in prices]
+        latest = prices[-1]
+        if latest.volume < float(config.get("min_volume") or 0):
+            return None
+
+        daily_pattern = daily_macd_kdj_reversal_setup(highs, lows, closes)
+        bb_middle, bb_upper, bb_lower, bb_width, bb_percent_b = bollinger_bands(closes)
+        previous_bollinger = bollinger_bands(closes[:-1]) if len(closes) > 21 else (None, None, None, None, None)
+        previous_percent_b = previous_bollinger[4]
+        bollinger_mode = str(config.get("bollinger_mode") or "all")
+        bollinger_signal = _bollinger_signal(bollinger_mode, bb_percent_b, previous_percent_b, bb_width)
+
+        require_macd = bool(config.get("require_macd_bearish_weakening"))
+        require_kdj = bool(config.get("require_kdj_pre_golden_cross"))
+        if require_macd and not daily_pattern.get("macd_bearish_weakening"):
+            return None
+        if require_kdj and not daily_pattern.get("kdj_pre_golden_cross"):
+            return None
+        if bollinger_mode != "all" and not bollinger_signal["match"]:
+            return None
+
+        volume_ma20 = sma(volumes, 20) or latest.volume
+        volume_ratio = latest.volume / volume_ma20 if volume_ma20 else 1.0
+        reasons: list[str] = []
+        pattern_score = 0.0
+        if daily_pattern.get("macd_bearish_weakening"):
+            pattern_score += 42
+            reasons.append("MACD柱狀體仍在0下但空方力道收斂")
+        if daily_pattern.get("kdj_pre_golden_cross"):
+            pattern_score += 42
+            reasons.append("K值尚未穿越D值，但K/D差距縮小")
+        if bollinger_signal["match"]:
+            pattern_score += 10
+            reasons.append(str(bollinger_signal["label"]))
+        if volume_ratio >= 1.1:
+            pattern_score += 6
+            reasons.append("成交量高於20日均量")
+
+        technical_score = pattern_score
+        if bb_percent_b is not None and 10 <= bb_percent_b <= 65:
+            technical_score += 4
+        change_5d = pct_change(closes, 5)
+        return {
+            "stock_id": stock.stock_id,
+            "name": stock.name,
+            "industry": stock.industry,
+            "market": stock.market,
+            "latest_date": latest.date,
+            "close": latest.close,
+            "volume": latest.volume,
+            "pattern_score": round(min(pattern_score, 100), 1),
+            "technical_score": round(min(technical_score, 100), 1),
+            "reasons": reasons,
+            "flags": {
+                "macd_bearish_weakening": bool(daily_pattern.get("macd_bearish_weakening")),
+                "kdj_pre_golden_cross": bool(daily_pattern.get("kdj_pre_golden_cross")),
+                "daily_macd_kdj_reversal_setup": bool(daily_pattern.get("daily_macd_kdj_reversal_setup")),
+                "bollinger_match": bool(bollinger_signal["match"]),
+            },
+            "indicators": {
+                "macd_histogram": _round(daily_pattern.get("macd_histogram")),
+                "macd_previous_histogram": _round(daily_pattern.get("macd_previous_histogram")),
+                "macd_improving_steps": daily_pattern.get("macd_improving_steps"),
+                "kdj_k": _round(daily_pattern.get("kdj_k")),
+                "kdj_d": _round(daily_pattern.get("kdj_d")),
+                "kdj_j": _round(daily_pattern.get("kdj_j")),
+                "kdj_gap": _round(daily_pattern.get("kdj_gap")),
+                "kdj_previous_gap": _round(daily_pattern.get("kdj_previous_gap")),
+                "bollinger_percent_b": _round(bb_percent_b),
+                "bollinger_previous_percent_b": _round(previous_percent_b),
+                "bollinger_middle": _round(bb_middle),
+                "bollinger_upper": _round(bb_upper),
+                "bollinger_lower": _round(bb_lower),
+                "bollinger_bandwidth": _round(bb_width),
+                "volume_ratio": _round(volume_ratio),
+                "change_5d": _round(change_5d),
+            },
+        }
+
     def _run_response(
         self,
         scores: list[ScoreResult],
@@ -584,3 +819,51 @@ def _float_filter(value: str | None, default: float) -> float:
 
 def _bool_filter(value: str | None) -> bool:
     return str(value or "").lower() in {"1", "true", "yes", "on"}
+
+
+def _int_filter(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _body_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value or "").lower() in {"1", "true", "yes", "on"}
+
+
+def _is_common_stock_id(stock_id: str) -> bool:
+    return stock_id.isdigit() and len(stock_id) == 4
+
+
+def _market_matches(stock_market: str, requested: str) -> bool:
+    if requested in {"", "all"}:
+        return True
+    market = (stock_market or "").lower()
+    if requested == "twse":
+        return "twse" in market or "上市" in market
+    if requested in {"tpex", "otc"}:
+        return "tpex" in market or "otc" in market or "上櫃" in market
+    return requested in market
+
+
+def _bollinger_signal(
+    mode: str,
+    percent_b: float | None,
+    previous_percent_b: float | None,
+    bandwidth: float | None,
+) -> dict[str, bool | str]:
+    if mode == "all":
+        return {"match": True, "label": "布林位置僅供參考"}
+    if percent_b is None:
+        return {"match": False, "label": "布林資料不足"}
+    if mode == "lower_half":
+        return {"match": 0 <= percent_b <= 60, "label": "布林中下緣，尚未遠離低位"}
+    if mode == "lower_rebound":
+        match = 5 <= percent_b <= 55 and (previous_percent_b is None or percent_b > previous_percent_b)
+        return {"match": match, "label": "布林下緣回升"}
+    if mode == "squeeze":
+        return {"match": bandwidth is not None and bandwidth <= 14, "label": "布林通道收斂"}
+    return {"match": True, "label": "布林位置僅供參考"}

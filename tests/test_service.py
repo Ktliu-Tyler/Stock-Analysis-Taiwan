@@ -74,6 +74,44 @@ class CountingMarketClient:
         return [NewsItem(stock_id=stock.stock_id, title="測試股營收成長", source="test", published_at="2026-03-01")]
 
 
+class TechnicalScanClient:
+    matching_closes = [
+        100.3427, 99.4041, 99.647, 100.2619, 100.7026, 101.1671, 100.921, 100.9415,
+        100.174, 100.4921, 100.598, 100.2963, 99.4255, 98.7622, 98.4549, 98.9783,
+        98.7828, 99.218, 98.5676, 98.0228, 97.4511, 96.9611, 97.2833, 96.9231,
+        96.4852, 96.6251, 96.3898, 96.8458, 97.009, 97.3905, 97.1243, 96.8059,
+        96.5795, 97.2097, 97.7702, 97.7278, 97.5674, 96.733, 97.1557, 97.1817,
+        96.6971, 97.1134, 96.6992, 96.7995, 95.9042, 96.2635, 95.5179, 94.9763,
+        94.7993, 94.8496, 93.9881, 94.1081, 94.6467, 94.0573, 94.0102,
+    ]
+
+    def get_stock_info(self):
+        return [
+            Stock("1111", "轉折股", "測試產業", "twse"),
+            Stock("2222", "趨勢股", "測試產業", "twse"),
+        ]
+
+    def get_twse_latest_snapshot(self):
+        return []
+
+    def get_prices(self, stock_id: str, days: int = 180):
+        closes = self.matching_closes if stock_id == "1111" else [float(50 + index) for index in range(55)]
+        start = date(2026, 1, 1)
+        return [
+            PriceBar(
+                date=(start + timedelta(days=index)).isoformat(),
+                stock_id=stock_id,
+                open=close - 0.4,
+                high=close + 1.2,
+                low=close - 1.2,
+                close=close,
+                volume=1_000_000 + index * 1000,
+                amount=0,
+            )
+            for index, close in enumerate(closes)
+        ]
+
+
 class ServiceTests(unittest.TestCase):
     def test_demo_run_and_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -215,6 +253,24 @@ class ServiceTests(unittest.TestCase):
         ]
         filtered = service._apply_filters(scores, {"setup_pattern": "daily_macd_kdj_reversal"})
         self.assertEqual([score.stock_id for score in filtered], ["1111"])
+
+    def test_direct_api_technical_scan_uses_client_not_local_scores(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            storage = Storage(Path(tmp) / "test.sqlite")
+            service = ScreenerService(storage=storage, client=TechnicalScanClient())
+            payload = service.technical_scan_direct(
+                {
+                    "market": "all",
+                    "limit": 0,
+                    "require_macd_bearish_weakening": True,
+                    "require_kdj_pre_golden_cross": True,
+                    "bollinger_mode": "all",
+                }
+            )
+            self.assertEqual(payload["source"], "api")
+            self.assertEqual(payload["scanned"], 2)
+            self.assertEqual([item["stock_id"] for item in payload["results"]], ["1111"])
+            self.assertEqual(storage.get_stocks(), [])
 
 
 if __name__ == "__main__":
