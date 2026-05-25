@@ -431,12 +431,16 @@ class ScreenerService:
         industry = filters.get("industry", "")
         direction = filters.get("direction", "")
         advice = filters.get("advice", "")
+        setup_pattern = filters.get("setup_pattern", "")
         foreign_or_trust = filters.get("foreign_or_trust_only", "").lower() in {"1", "true", "yes"}
         exclude_high_risk = filters.get("exclude_high_risk", "").lower() in {"1", "true", "yes"}
         require_ma_bullish = _bool_filter(filters.get("ma_bullish"))
         require_macd_bullish = _bool_filter(filters.get("macd_bullish"))
+        require_macd_bearish_weakening = _bool_filter(filters.get("macd_bearish_weakening"))
         require_bollinger_bullish = _bool_filter(filters.get("bollinger_bullish"))
         require_kdj_bullish = _bool_filter(filters.get("kdj_bullish"))
+        require_kdj_pre_golden_cross = _bool_filter(filters.get("kdj_pre_golden_cross"))
+        require_daily_reversal = setup_pattern in {"daily_macd_kdj_reversal", "macd_kdj_reversal", "daily_reversal"}
         require_volume_breakout = _bool_filter(filters.get("volume_breakout"))
         require_breakout = _bool_filter(filters.get("breakout_20d"))
         require_sentiment_positive = _bool_filter(filters.get("sentiment_positive"))
@@ -475,9 +479,15 @@ class ScreenerService:
                 continue
             if require_macd_bullish and not flags.get("macd_bullish"):
                 continue
+            if require_macd_bearish_weakening and not flags.get("macd_bearish_weakening"):
+                continue
             if require_bollinger_bullish and not flags.get("bollinger_bullish"):
                 continue
             if require_kdj_bullish and not flags.get("kdj_bullish"):
+                continue
+            if require_kdj_pre_golden_cross and not flags.get("kdj_pre_golden_cross"):
+                continue
+            if require_daily_reversal and not flags.get("daily_macd_kdj_reversal_setup"):
                 continue
             if require_volume_breakout and not flags.get("volume_breakout"):
                 continue

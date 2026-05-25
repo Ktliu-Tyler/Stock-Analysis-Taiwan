@@ -1,6 +1,6 @@
 # 專案工作流程
 
-最後更新：2026-05-24
+最後更新：2026-05-25
 
 ## 開發前檢查
 
@@ -56,6 +56,27 @@ venv\Scripts\python.exe daily_agent.py --sample --send-line
 venv\Scripts\python.exe daily_agent.py --stocks 2330 2317 2454 --dry-run
 ```
 
+## 使用日線自訂篩選
+
+Web 介面：
+
+1. 啟動服務。
+2. 在首頁篩選列找到「日線型態」。
+3. 選擇「MACD空頭減弱 + KDJ將金叉」。
+
+API：
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:8000/api/screener/today?mode=short&setup_pattern=daily_macd_kdj_reversal"
+```
+
+可拆開單獨查詢：
+
+```powershell
+Invoke-RestMethod "http://127.0.0.1:8000/api/screener/today?macd_bearish_weakening=1"
+Invoke-RestMethod "http://127.0.0.1:8000/api/screener/today?kdj_pre_golden_cross=1"
+```
+
 ## 上傳 GitHub 前檢查
 
 硬性規則：不要上傳 `.env`、API key、LINE token、Email 密碼、`reports/` 產物或個人資料。
@@ -66,6 +87,17 @@ venv\Scripts\python.exe daily_agent.py --stocks 2330 2317 2454 --dry-run
 venv\Scripts\python.exe scripts\integrity_check.py
 venv\Scripts\python.exe scripts\secret_scan.py
 git status --short
+```
+
+前端或篩選邏輯變更時，另外執行：
+
+```powershell
+venv\Scripts\python.exe -m unittest discover -s tests
+venv\Scripts\python.exe -m compileall app
+node --check static\app.js
+node --check static\ai.js
+node --check static\portfolio.js
+node --check static\stock.js
 ```
 
 只允許提交：

@@ -30,6 +30,7 @@ const elements = {
   sentimentFilter: document.querySelector("#sentimentFilter"),
   riskScoreFilter: document.querySelector("#riskScoreFilter"),
   modelConfidenceFilter: document.querySelector("#modelConfidenceFilter"),
+  setupPatternFilter: document.querySelector("#setupPatternFilter"),
   flowFilter: document.querySelector("#flowFilter"),
   riskFilter: document.querySelector("#riskFilter"),
   maFilter: document.querySelector("#maFilter"),
@@ -85,6 +86,7 @@ function params() {
   query.set("min_sentiment", elements.sentimentFilter.value || "0");
   query.set("min_risk", elements.riskScoreFilter.value || "0");
   query.set("min_model_confidence", elements.modelConfidenceFilter.value || "0");
+  query.set("setup_pattern", elements.setupPatternFilter.value || "all");
   query.set("foreign_or_trust_only", elements.flowFilter.checked ? "1" : "0");
   query.set("exclude_high_risk", elements.riskFilter.checked ? "1" : "0");
   query.set("ma_bullish", elements.maFilter.checked ? "1" : "0");
@@ -168,10 +170,12 @@ function renderRows() {
       const decisionClass = decisionClassName(item.decision);
       const direction = details.direction || "-";
       const model = details.local_model || {};
+      const flags = details.filter_flags || {};
+      const patternTag = flags.daily_macd_kdj_reversal_setup ? `<span class="modelMini patternMini">日線轉折</span>` : "";
       return `<tr data-stock="${item.stock_id}" class="${state.selectedStockId === item.stock_id ? "selected" : ""}">
         <td><div class="stockName"><strong>${item.stock_id} ${escapeHtml(item.name)}</strong><span>${escapeHtml(item.industry)}</span></div></td>
         <td><span class="direction ${directionClassName(direction)}">${escapeHtml(direction)}</span></td>
-        <td><span class="badge ${decisionClass}">${escapeHtml(item.decision)}</span><span class="modelMini">${escapeHtml(model.label || "")}</span></td>
+        <td><span class="badge ${decisionClass}">${escapeHtml(item.decision)}</span><span class="modelMini">${escapeHtml(model.label || "")}</span>${patternTag}</td>
         <td class="score">${formatScore(item.buy_score)}</td>
         <td>${formatScore(item.technical_score)}</td>
         <td>${formatScore(item.chip_score)}</td>
@@ -613,6 +617,7 @@ elements.modeButtons.forEach((button) => {
   elements.sentimentFilter,
   elements.riskScoreFilter,
   elements.modelConfidenceFilter,
+  elements.setupPatternFilter,
   elements.flowFilter,
   elements.riskFilter,
   elements.maFilter,

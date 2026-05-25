@@ -296,6 +296,14 @@ GET /api/backtest
 /api/screener/today?mode=swing&direction=看多&macd_bullish=1&local_model_bullish=1&min_technical=70
 ```
 
+日線轉折型態篩選：
+
+```text
+/api/screener/today?mode=short&setup_pattern=daily_macd_kdj_reversal
+```
+
+這個模式會尋找 MACD histogram 仍在 0 下但空方力道收斂，且 KDJ 的 K 值尚未穿越 D 值、但差距正在縮小的股票。若只想拆開條件，可使用 `macd_bearish_weakening=1` 或 `kdj_pre_golden_cross=1`。
+
 手動更新資料：
 
 ```powershell

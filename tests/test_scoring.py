@@ -15,8 +15,10 @@ class ScoringTests(unittest.TestCase):
         self.assertGreater(score.entry_watch_price, score.stop_loss_price)
         self.assertIn("bollinger", score.details)
         self.assertIn("kdj", score.details)
+        self.assertIn("daily_pattern", score.details)
         self.assertIn("bollinger_bullish", score.details["filter_flags"])
         self.assertIn("kdj_bullish", score.details["filter_flags"])
+        self.assertIn("daily_macd_kdj_reversal_setup", score.details["filter_flags"])
 
     def test_modes_produce_mode_metadata(self):
         stocks, prices, flows, margins, news = demo_market()

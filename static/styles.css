@@ -1175,6 +1175,10 @@ tbody tr.selected {
   font-size: 11px;
 }
 
+.patternMini {
+  color: var(--amber);
+}
+
 .score {
   font-weight: 780;
 }

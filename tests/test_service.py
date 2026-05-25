@@ -3,7 +3,7 @@ import unittest
 from datetime import date, timedelta
 from pathlib import Path
 
-from app.models import InstitutionalFlow, MarginBalance, NewsItem, PriceBar, Stock
+from app.models import InstitutionalFlow, MarginBalance, NewsItem, PriceBar, ScoreResult, Stock
 from app.screener import ScreenerService
 from app.storage import Storage
 from app.portfolio import PortfolioService
@@ -156,6 +156,65 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(forced["source"], "test_universe")
             self.assertEqual(client.price_calls, 2)
             self.assertEqual(forced["stats"]["downloaded"], 1)
+
+    def test_daily_reversal_setup_filter(self):
+        service = ScreenerService()
+        scores = [
+            ScoreResult(
+                stock_id="1111",
+                name="setup",
+                industry="test",
+                market="twse",
+                run_date="2026-05-25",
+                buy_score=60,
+                technical_score=55,
+                chip_score=50,
+                sentiment_score=50,
+                risk_score=55,
+                entry_watch_price=10,
+                stop_loss_price=9,
+                target_zone="10.5 - 11.0",
+                buy_reason="",
+                avoid_reason="",
+                data_freshness="test",
+                decision="watch",
+                details={
+                    "filter_flags": {
+                        "daily_macd_kdj_reversal_setup": True,
+                        "macd_bearish_weakening": True,
+                        "kdj_pre_golden_cross": True,
+                    },
+                    "local_model": {},
+                    "latest_volume": 1_000_000,
+                },
+            ),
+            ScoreResult(
+                stock_id="2222",
+                name="plain",
+                industry="test",
+                market="twse",
+                run_date="2026-05-25",
+                buy_score=60,
+                technical_score=55,
+                chip_score=50,
+                sentiment_score=50,
+                risk_score=55,
+                entry_watch_price=10,
+                stop_loss_price=9,
+                target_zone="10.5 - 11.0",
+                buy_reason="",
+                avoid_reason="",
+                data_freshness="test",
+                decision="watch",
+                details={
+                    "filter_flags": {"daily_macd_kdj_reversal_setup": False},
+                    "local_model": {},
+                    "latest_volume": 1_000_000,
+                },
+            ),
+        ]
+        filtered = service._apply_filters(scores, {"setup_pattern": "daily_macd_kdj_reversal"})
+        self.assertEqual([score.stock_id for score in filtered], ["1111"])
 
 
 if __name__ == "__main__":

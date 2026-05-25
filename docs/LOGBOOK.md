@@ -1,5 +1,19 @@
 # 執行紀錄
 
+## 2026-05-25
+
+- 新增日線自訂篩選模式：「MACD空頭減弱 + KDJ將金叉」。
+- 新增 MACD series 與 KDJ series 計算，讓系統可以判斷最近多根日線的變化，而不是只看最新一根。
+- 在評分模型加入 `daily_pattern` 與 `filter_flags`，完整成立時標示 `daily_macd_kdj_reversal_setup`。
+- 在首頁新增「日線型態」篩選選單，符合條件的股票會顯示「日線轉折」標籤。
+- API 支援 `setup_pattern=daily_macd_kdj_reversal`，也支援 `macd_bearish_weakening=1` 與 `kdj_pre_golden_cross=1` 單獨篩選。
+- 更新測試，覆蓋指標 series、一組日線轉折樣本、評分輸出與後端篩選。
+- 已執行 `venv\Scripts\python.exe -m unittest discover -s tests`：17 tests 通過。
+- 已執行 `venv\Scripts\python.exe -m compileall app`：通過。
+- 已執行 `node --check static\app.js static\stock.js static\ai.js static\portfolio.js`：通過。
+- 已執行 `scripts\secret_scan.py` 與 `scripts\integrity_check.py`：通過。
+- 以本機服務測試 `/api/screener/today?mode=short&setup_pattern=daily_macd_kdj_reversal`：API 正常回傳，目前本機資料符合數量為 0。
+
 ## 2026-05-24
 
 - 建立 `docs/DAILY_AGENT_PLAN.md`，定義每日晨報 agent、通知策略、排程策略與隱私原則。

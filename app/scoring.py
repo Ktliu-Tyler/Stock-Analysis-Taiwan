@@ -3,7 +3,19 @@ from __future__ import annotations
 from datetime import date
 from typing import Any
 
-from .indicators import atr, bollinger_bands, macd, pct_change, rolling_max, rolling_min, rsi, sma, stochastic_kdj, volatility
+from .indicators import (
+    atr,
+    bollinger_bands,
+    daily_macd_kdj_reversal_setup,
+    macd,
+    pct_change,
+    rolling_max,
+    rolling_min,
+    rsi,
+    sma,
+    stochastic_kdj,
+    volatility,
+)
 from .models import InstitutionalFlow, MarginBalance, NewsItem, PriceBar, ScoreResult, Stock
 
 POSITIVE_TERMS = [
@@ -246,6 +258,7 @@ def score_stock(
     rsi14 = rsi(closes, 14)
     macd_line, macd_signal, macd_histogram = macd(closes)
     k_value, d_value, j_value = stochastic_kdj(highs, lows, closes)
+    daily_pattern = daily_macd_kdj_reversal_setup(highs, lows, closes)
     bb_middle, bb_upper, bb_lower, bb_width, bb_percent_b = bollinger_bands(closes)
     atr14 = atr(highs, lows, closes, 14)
     atr_ratio = _safe_ratio(atr14 or 0, latest.close)
@@ -410,6 +423,26 @@ def score_stock(
         kdj_text = "KDJ資料不足"
     technical_indicators.append(
         _indicator("kdj", "KDJ", f"K {_round(k_value)} / D {_round(d_value)} / J {_round(j_value)}", kdj_delta, kdj_text)
+    )
+
+    pattern_delta = 0.0
+    if daily_pattern.get("daily_macd_kdj_reversal_setup"):
+        pattern_delta = 9
+        buy_reasons.append("日線MACD空頭減弱且KDJ接近黃金交叉")
+        pattern_text = "MACD柱狀體仍在0下方但連續收斂，K值尚未站上D值但差距縮小，屬於日線轉折預備型態"
+    elif daily_pattern.get("macd_bearish_weakening") or daily_pattern.get("kdj_pre_golden_cross"):
+        pattern_delta = 3
+        pattern_text = str(daily_pattern.get("label") or "日線轉折條件部分成立")
+    else:
+        pattern_text = "日線MACD/KDJ轉折預備型態未成立"
+    technical_indicators.append(
+        _indicator(
+            "daily_macd_kdj_reversal_setup",
+            "日線MACD/KDJ轉折預備",
+            daily_pattern.get("label"),
+            pattern_delta,
+            pattern_text,
+        )
     )
 
     if mode in {"swing", "long"}:
@@ -637,6 +670,7 @@ def score_stock(
         "macd": {"line": macd_line, "signal": macd_signal, "histogram": macd_histogram},
         "kd": {"k": k_value, "d": d_value},
         "kdj": {"k": k_value, "d": d_value, "j": j_value},
+        "daily_pattern": daily_pattern,
         "bollinger": {
             "middle": bb_middle,
             "upper": bb_upper,
@@ -661,7 +695,7 @@ def score_stock(
         "direction": direction,
         "investment_advice": investment_advice,
         "local_model": local_model,
-        "filter_flags": build_filter_flags(indicator_breakdown, local_model, latest_flow),
+        "filter_flags": build_filter_flags(indicator_breakdown, local_model, latest_flow, daily_pattern),
     }
 
     return ScoreResult(
@@ -820,14 +854,24 @@ def local_model_analysis(indicator_breakdown: dict[str, Any], buy_score: float, 
     }
 
 
-def build_filter_flags(indicator_breakdown: dict[str, Any], local_model: dict[str, Any], latest_flow: InstitutionalFlow | None) -> dict[str, Any]:
+def build_filter_flags(
+    indicator_breakdown: dict[str, Any],
+    local_model: dict[str, Any],
+    latest_flow: InstitutionalFlow | None,
+    daily_pattern: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     technical_items = {item["key"]: item for item in indicator_breakdown["technical"]["indicators"]}
     sentiment_items = {item["key"]: item for item in indicator_breakdown["sentiment"]["indicators"]}
+    daily_pattern = daily_pattern or {}
     return {
         "ma_bullish": technical_items.get("ma_trend", {}).get("impact", 0) >= 8,
         "macd_bullish": technical_items.get("macd_histogram", {}).get("impact", 0) >= 5,
+        "macd_bearish_weakening": bool(daily_pattern.get("macd_bearish_weakening")),
         "bollinger_bullish": technical_items.get("bollinger", {}).get("impact", 0) >= 6,
         "kdj_bullish": technical_items.get("kdj", {}).get("impact", 0) >= 5,
+        "kdj_pre_golden_cross": bool(daily_pattern.get("kdj_pre_golden_cross")),
+        "daily_macd_kdj_reversal_setup": bool(daily_pattern.get("daily_macd_kdj_reversal_setup")),
+        "daily_pattern_label": daily_pattern.get("label", ""),
         "volume_breakout": technical_items.get("volume_ratio", {}).get("impact", 0) >= 8,
         "breakout_20d": technical_items.get("breakout_20d", {}).get("impact", 0) >= 8,
         "sentiment_positive": sentiment_items.get("positive_terms", {}).get("impact", 0) >= 5,
