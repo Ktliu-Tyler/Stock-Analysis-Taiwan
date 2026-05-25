@@ -22,6 +22,14 @@
 - 已執行 `scripts\secret_scan.py` 與 `scripts\integrity_check.py`：通過。
 - 以本機服務測試 `/api/screener/today?mode=short&setup_pattern=daily_macd_kdj_reversal`：API 正常回傳，目前本機資料符合數量為 0。
 
+### GitHub 發布與保留事項
+
+- 已推送直接 API 技術掃描功能：`2e4382a Add direct API technical scan page`。
+- 已推送直接 API only 防呆與稽核：`cc47234 Enforce direct API technical scan policy`。
+- 目前 `main` 已對齊遠端 GitHub repo：`Ktliu-Tyler/Stock-Analysis-Taiwan`。
+- 本機仍保留未提交變更：`daily_agent.py`、`scripts/create_internet_shortcut.ps1`、`scripts/open_site.bat`、`scripts/open_site.ps1`；這些不是本次文件整理範圍，未上傳 GitHub。
+- 上傳前已確認 `secret_scan.py` 通過，未提交 `.env`、API key、LINE token、Email 密碼、`reports/` 產物或個人資料。
+
 ## 2026-05-24
 
 - 建立 `docs/DAILY_AGENT_PLAN.md`，定義每日晨報 agent、通知策略、排程策略與隱私原則。
